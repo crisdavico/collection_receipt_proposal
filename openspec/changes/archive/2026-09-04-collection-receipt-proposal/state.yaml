@@ -1,0 +1,13 @@
+schema: spec-driven
+changeName: collection-receipt-proposal
+artifactStore: openspec
+phase: apply
+artifacts:
+  proposal: done
+  specs: done
+  design: done
+  tasks: done
+  applyProgress: in-progress
+  verifyReport: missing
+updatedAt: "2026-09-04T18:30:00Z"
+notes: Phase 1 Foundation Event+ACL complete (tasks 1.1–1.6). Phases 2–6 remaining.

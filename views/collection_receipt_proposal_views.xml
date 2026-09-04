@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+    <record id="action_collection_receipt_proposal" model="ir.actions.client">
+        <field name="name">Receipt Proposal</field>
+        <field name="tag">collection_receipt_proposal.receipt_proposal</field>
+    </record>
+
+    <record id="view_collection_sheet_form_receipt_proposal" model="ir.ui.view">
+        <field name="name">collection.sheet.form.receipt.proposal</field>
+        <field name="model">collection.sheet</field>
+        <field name="inherit_id" ref="collection.view_collection_sheet_form" />
+        <field name="arch" type="xml">
+            <button name="action_open_document_review" position="after">
+                <button
+          name="action_open_receipt_proposal"
+          string="Receipt Proposal"
+          type="object"
+          class="oe_highlight"
+          invisible="not id or state != 'proposal'"
+        />
+            </button>
+        </field>
+    </record>
+</odoo>

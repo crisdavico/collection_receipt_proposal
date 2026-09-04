@@ -1,0 +1,42 @@
+schema: spec-driven
+project: collection_receipt_proposal
+persistence: openspec
+strict_tdd: true
+
+context: |
+  Stack: Odoo 19 on Python, PostgreSQL 17, Docker Compose, and Doodba.
+  Scope: collection_receipt_proposal addon
+    (odoo/custom/src/private/collection_receipt_proposal/), a sibling of the
+    collection addon it depends on.
+  Product: Conciliación de Cobranzas — the drag-and-drop board that distributes a
+    collection sheet's collected money across customers and the two circuits.
+  Models: extends collection.receipt.value, collection.voucher,
+    collection.allocation and collection.sheet; adds the immutable
+    collection.receipt.proposal.event.
+  Testing: invoke test -m collection_receipt_proposal --mode=update
+    (Odoo TransactionCase in containers); re-run the collection suite too, since
+    this addon relaxes one of its constraints.
+  Quality: pre-commit (Ruff, pylint-odoo, ESLint, Prettier, OCA checks).
+
+testing:
+  strict_tdd: true
+  runner:
+    framework: Odoo native test runner
+    command: invoke test -m collection_receipt_proposal --mode=update
+  quality:
+    linter:
+      available: true
+      command: >-
+        pre-commit run --files odoo/custom/src/private/collection_receipt_proposal/**
+
+rules:
+  apply:
+    roots:
+      - >-
+        /home/crisd/projects/seedian/seedian/odoo/custom/src/private/collection_receipt_proposal
+    tdd: true
+    test_command: invoke test -m collection_receipt_proposal --mode=update
+  verify:
+    test_command: invoke test -m collection_receipt_proposal --mode=update
+    lint_command: >-
+      pre-commit run --files odoo/custom/src/private/collection_receipt_proposal/**
