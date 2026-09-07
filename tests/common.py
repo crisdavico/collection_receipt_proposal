@@ -185,6 +185,7 @@ class ReceiptProposalCommon:
     def _confirm(self, sheet):
         """Move a sheet to `proposal`, the only state the board runs in."""
         self._mark_validated(sheet.voucher_ids)
+        sheet.action_seller_close()
         sheet.action_confirm()
         return sheet
 
