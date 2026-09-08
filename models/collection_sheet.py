@@ -10,6 +10,7 @@ from odoo.tools.translate import _
 from .collection_allocation import DOCUMENT_KINDS, KIND_LABELS
 
 _PROPOSAL_STATE = "proposal"
+_SELLER_DEPOSIT = "seller_deposit"
 _EVENT_LIMIT = 200
 
 
@@ -183,7 +184,8 @@ class CollectionSheet(models.Model):
             "pool": [
                 voucher._proposal_pool_payload()
                 for voucher in vouchers
-                if currency.compare_amounts(voucher.proposal_free_amount, 0.0) > 0
+                if voucher.document_type != _SELLER_DEPOSIT
+                and currency.compare_amounts(voucher.proposal_free_amount, 0.0) > 0
             ],
             "events": self._proposal_event_payload(),
         }
@@ -310,6 +312,10 @@ class CollectionSheet(models.Model):
             self._proposal_ensure_column_open(source_allocation)
         else:
             voucher = self._proposal_voucher(voucher_id)
+            if voucher.document_type == _SELLER_DEPOSIT:
+                raise UserError(
+                    _("Seller deposits cannot be assigned from the unassigned pool.")
+                )
             maximum = voucher.proposal_free_amount
             source_allocation = self.env["collection.allocation"]
             source_kind = False
@@ -455,12 +461,7 @@ class CollectionSheet(models.Model):
         self.ensure_one()
         if not value:
             return
-        currency = self._proposal_currency()
-        remaining = currency.round((value.amount or 0.0) - amount)
-        if currency.compare_amounts(remaining, 0.0) <= 0:
-            value.unlink()
-        else:
-            value.amount = remaining
+        value._shrink_or_unlink(amount)
 
     @api.private
     def _proposal_grow_value(self, allocation, document_kind, voucher, amount):
@@ -470,20 +471,9 @@ class CollectionSheet(models.Model):
         """
         self.ensure_one()
         receipt = allocation._proposal_receipt_get_or_create(document_kind)
-        twin = receipt.value_ids.filtered(
-            lambda value, target=voucher: value.voucher_id == target
-        )[:1]
-        if twin:
-            twin.amount = (twin.amount or 0.0) + amount
-            return True
-        self.env["collection.receipt.value"].create(
-            {
-                "receipt_id": receipt.id,
-                "voucher_id": voucher.id,
-                "amount": amount,
-            }
+        return self.env["collection.receipt.value"]._grow_voucher_amount(
+            receipt, voucher, amount
         )
-        return False
 
     @api.private
     def _proposal_sync_voucher_owner(self, voucher):
@@ -492,12 +482,19 @@ class CollectionSheet(models.Model):
         While this addon is installed, same-sheet partner mismatch is allowed so
         the owner can be another customer's allocation. Cross-sheet and
         no-share pointers still fail the inherited partner constraints.
+        `seller_deposit` is never given an owner here. Replaced cash with no
+        remaining values keeps its current `allocation_id`.
         """
         self.ensure_one()
+        if voucher.document_type == _SELLER_DEPOSIT:
+            return
         values = voucher.proposal_value_ids
         candidates = values.receipt_id.allocation_id
         if not candidates:
             if voucher.allocation_id:
+                replaced = voucher.replaced_amount or 0.0
+                if voucher.currency_id.compare_amounts(replaced, 0.0) > 0:
+                    return
                 voucher.allocation_id = False
             return
         best = max(

@@ -406,3 +406,68 @@ class TestReceiptProposalBoard(ReceiptProposalCommon, TransactionCase):
         )
         self.assertEqual(second["changes"], [])
         self._assert_money_unchanged(aligned)
+
+    def _replaced_cash_setup(self, cash_amount=100.0, replace_amount=100.0):
+        sheet = self._create_sheet(force_new=True)
+        partner = self._partner("REPL-POOL")
+        cash = self._create_voucher(
+            partner, sheet, amount=cash_amount, document_type="cash"
+        )
+        # Confirm validates every sheet voucher, so the U5b write-hook
+        # replaces cash by this deposit amount. Size it to the intended
+        # replace; a post-confirm _cash_replace would double-count.
+        deposit = self._create_seller_deposit(sheet, amount=replace_amount)
+        allocation = self._create_allocation(
+            sheet,
+            partner,
+            vouchers=cash,
+            lines=[self._line_vals(invoice_balance=cash_amount)],
+        )
+        receipt = self._create_receipt(allocation, "invoice")
+        cash_value = self._create_value(receipt, cash, cash_amount)
+        self._confirm(sheet)
+        return sheet, cash, deposit, allocation, receipt, cash_value
+
+    def test_replaced_cash_leaves_the_pool(self):
+        """A cash voucher whose replaced_amount equals amount MUST leave the pool."""
+        sheet, cash, _deposit, _allocation, _receipt, _cash_value = (
+            self._replaced_cash_setup(cash_amount=100.0, replace_amount=100.0)
+        )
+        cash.invalidate_recordset()
+        self.assertAlmostEqual(cash.replaced_amount, 100.0, places=2)
+        self.assertAlmostEqual(cash.proposal_assigned_amount, 0.0, places=2)
+        self.assertAlmostEqual(cash.proposal_free_amount, 0.0, places=2)
+        board = self.Sheet.get_proposal_board(sheet.id)
+        pool_ids = {item["voucher_id"] for item in board["pool"]}
+        self.assertNotIn(cash.id, pool_ids)
+
+    def test_partial_replace_remains_only_for_the_free_remainder(self):
+        """Amount 100, assigned 0, replaced 40 MUST appear in the pool only for 60."""
+        sheet, cash, _deposit, _allocation, receipt, _cash_value = (
+            self._replaced_cash_setup(cash_amount=100.0, replace_amount=40.0)
+        )
+        remaining = receipt.value_ids.filtered(lambda value: value.voucher_id == cash)
+        self.assertTrue(remaining, "partial replace must leave a cash remainder")
+        remaining.unlink()
+        cash.invalidate_recordset()
+        self.assertAlmostEqual(cash.replaced_amount, 40.0, places=2)
+        self.assertAlmostEqual(cash.proposal_assigned_amount, 0.0, places=2)
+        self.assertAlmostEqual(cash.proposal_free_amount, 60.0, places=2)
+        board = self.Sheet.get_proposal_board(sheet.id)
+        pool = {item["voucher_id"]: item for item in board["pool"]}
+        self.assertIn(cash.id, pool)
+        self.assertAlmostEqual(pool[cash.id]["free_amount"], 60.0, places=2)
+
+    def test_excess_deposit_is_not_a_pool_card(self):
+        """Unassigned seller_deposit MUST NOT appear in the unassigned pool."""
+        sheet = self._create_sheet(force_new=True)
+        partner = self._partner("EXCESS-DEP")
+        deposit = self._create_seller_deposit(sheet, amount=80.0)
+        self._create_allocation(
+            sheet, partner, lines=[self._line_vals(invoice_balance=80.0)]
+        )
+        self._confirm(sheet)
+        self.assertGreater(deposit.proposal_free_amount, 0.0)
+        board = self.Sheet.get_proposal_board(sheet.id)
+        pool_ids = {item["voucher_id"] for item in board["pool"]}
+        self.assertNotIn(deposit.id, pool_ids)

@@ -609,3 +609,24 @@ class TestReceiptProposalActions(ReceiptProposalCommon, TransactionCase):
             keep_value_id=keep.id,
         )
         self.assertGreaterEqual(len(self._events("unify")), 2)
+
+    def test_remittance_is_not_pool_draggable(self):
+        """A seller_deposit MUST refuse a pool transfer and keep allocation_id unset."""
+        sheet = self._create_sheet(force_new=True)
+        partner = self._partner("REM-POOL")
+        deposit = self._create_seller_deposit(sheet, amount=80.0)
+        allocation = self._create_allocation(
+            sheet, partner, lines=[self._line_vals(invoice_balance=80.0)]
+        )
+        self._confirm(sheet)
+        self.assertFalse(deposit.allocation_id)
+        with self.assertRaises(UserError):
+            self.Sheet.action_proposal_transfer(
+                sheet_id=sheet.id,
+                voucher_id=deposit.id,
+                to_allocation_id=allocation.id,
+                document_kind="invoice",
+                amount=80.0,
+            )
+        self.assertFalse(deposit.allocation_id)
+        self.assertFalse(deposit.proposal_value_ids)

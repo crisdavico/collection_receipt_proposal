@@ -25,13 +25,15 @@ class CollectionVoucher(models.Model):
     )
     proposal_is_split = fields.Boolean(compute="_compute_proposal_amounts")
 
-    @api.depends("amount", "proposal_value_ids.amount")
+    @api.depends("amount", "proposal_value_ids.amount", "replaced_amount")
     def _compute_proposal_amounts(self):
         for voucher in self:
             values = voucher.proposal_value_ids
             assigned = sum(value.amount or 0.0 for value in values)
             voucher.proposal_assigned_amount = assigned
-            voucher.proposal_free_amount = (voucher.amount or 0.0) - assigned
+            voucher.proposal_free_amount = (
+                (voucher.amount or 0.0) - assigned - (voucher.replaced_amount or 0.0)
+            )
             voucher.proposal_is_split = len(values) > 1
 
     @api.constrains("partner_id", "allocation_id")

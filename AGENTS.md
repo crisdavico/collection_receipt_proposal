@@ -32,23 +32,22 @@ Ground truth order: source under this directory → `../collection/AGENTS.md` �
 | Documento                   | `collection.allocation.line` of that `document_kind` |
 | "Imputado"                  | `collection.allocation.line.amount_applied`          |
 | "Sin imputar / a favor"     | `collection.receipt.amount_on_account`               |
-| "Sin asignar" pool          | voucher with `proposal_free_amount > 0` (synthetic)  |
+| "Sin asignar" pool          | free > 0 excluding `seller_deposit` (synthetic)      |
 
 ## Repository map
 
-| Path                                                | Role                                                                                       |
-| --------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `models/collection_receipt_value.py`                | Sheet-scoped `_check_same_allocation`; sheet-wide `_check_voucher_split_cap`; card payload |
-| `models/collection_receipt.py`                      | Explicit `depends` on the three receipt totals (see **Domain rules**)                      |
-| `models/collection_voucher.py`                      | `proposal_value_ids` / assigned / free / is_split; `_proposal_card_label`; pool payload    |
-| `models/collection_allocation.py`                   | Per-circuit figures + status; the FIFO engine; per-customer close/reopen; column payload   |
-| `models/collection_receipt_proposal_event.py`       | Immutable audit trail; gated create; `_proposal_log` is the only sanctioned writer         |
-| `models/collection_sheet.py`                        | `action_open_receipt_proposal` + the whole board RPC surface                               |
-| `security/ir.model.access.csv`                      | One row: event `1,0,1,0` for `base.group_user`                                             |
-| `security/collection_receipt_proposal_security.xml` | One global company `ir.rule` on the event model                                            |
-| `views/collection_receipt_proposal_views.xml`       | `ir.actions.client` + the inherited sheet-form header button                               |
-| `static/src/receipt_proposal/`                      | OWL client action, pure helpers, templates, scoped SCSS                                    |
-| `tests/common.py`                                   | Receipt-shaped fixtures replicated from `collection`'s `TestCollectionReceipt`             |
+| Path                                                | Role                                                                                     |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `models/collection_receipt_value.py`                | Board card payload (`_proposal_card_payload`); same-sheet/cap live in core `collection`  |
+| `models/collection_voucher.py`                      | assigned / free (− `replaced_amount`); `_proposal_card_label`; pool payload              |
+| `models/collection_allocation.py`                   | Per-circuit figures + status; the FIFO engine; per-customer close/reopen; column payload |
+| `models/collection_receipt_proposal_event.py`       | Immutable audit trail; gated create; `_proposal_log` is the only sanctioned writer       |
+| `models/collection_sheet.py`                        | `action_open_receipt_proposal` + the whole board RPC surface                             |
+| `security/ir.model.access.csv`                      | One row: event `1,0,1,0` for `base.group_user`                                           |
+| `security/collection_receipt_proposal_security.xml` | One global company `ir.rule` on the event model                                          |
+| `views/collection_receipt_proposal_views.xml`       | `ir.actions.client` + the inherited sheet-form header button                             |
+| `static/src/receipt_proposal/`                      | OWL client action, pure helpers, templates, scoped SCSS                                  |
+| `tests/common.py`                                   | Receipt-shaped fixtures replicated from `collection`'s `TestCollectionReceipt`           |
 
 ## Domain rules (do not break)
 
@@ -64,28 +63,27 @@ Ground truth order: source under this directory → `../collection/AGENTS.md` �
   design: the result depends only on the current `receipt.total_values`, the documents'
   `due_date` and their `invoice_balance`. A `proposal_closed` allocation is frozen —
   `_proposal_recompute` returns `None` and writes nothing.
-- **Cross-customer voucher splits are allowed within one sheet.**
-  `_check_same_allocation` is relaxed to the sheet boundary, and
-  `_check_voucher_split_cap` is widened to sum _every_ value of the voucher (not just
-  the allocation's) and compare with `currency.compare_amounts`. Relaxing the first
-  without widening the second would let a voucher be over-split across customers — that
-  cap test is the important one.
+- **Cross-customer voucher splits are allowed within one sheet.** Same-sheet
+  `_check_same_allocation` and the sheet-wide `_check_voucher_split_cap` now live in
+  core `collection` (`collection.receipt.value`). This addon MUST NOT re-override those
+  constraints. Largest-share owner and partner-identity relax stay here.
 - **`voucher.allocation_id` names the largest assigned share**, including another
   customer on the same sheet. `_check_voucher_allocation_partner` and
   `_check_voucher_partners` still refuse a mismatch unless the voucher has a receipt
   value on that allocation and both records share a sheet. Cross-sheet pointers and
   naming another customer's allocation without a share there stay refused.
-  `_proposal_sync_voucher_owner` implements the overall-largest pointer.
-- **`collection.receipt` totals carry an explicit `depends`.** The base declares
-  `_compute_totals` depending on `line_ids.amount_applied`, but `line_ids` is a
-  computed, non-stored Many2many with no inverse: Odoo falls back to
-  `search([("line_ids", "in", ids)])` and raises _Cannot convert
-  collection.receipt.line_ids to SQL_ the moment an existing `amount_applied` is written
-  — which this board does on every mutation. Overriding the method does not help
-  (`Field.get_depends` walks the whole MRO and **extends** the list), so
-  `models/collection_receipt.py` redeclares `total_values`, `total_applied` and
-  `amount_on_account` with `depends=` routed through the stored
-  `allocation_id.line_ids`. Do not remove it without fixing the base first.
+  `_proposal_sync_voucher_owner` implements the overall-largest pointer. Replaced cash
+  with no remaining values MUST keep that pointer. `seller_deposit` MUST NOT receive
+  `allocation_id` from owner sync.
+- **Board lock.** `proposal_free_amount` is `amount − assigned − replaced_amount`
+  (`depends` includes `replaced_amount`). Free `<=` 0 stays off the unassigned pool.
+  `seller_deposit` remittance is not a pool card and MUST NOT be assigned from the pool.
+  Largest-share owner and partner-identity relax stay in this addon.
+- **`collection.receipt` totals carry an explicit `depends` in core.** Field-level
+  `depends=` on `total_values` / `total_applied` / `amount_on_account` lives on
+  `collection.receipt` in the `collection` addon (routed through stored
+  `allocation_id.line_ids`, not the non-stored `line_ids` Many2many). Do not re-add a
+  satellite `models/collection_receipt.py` override.
 - **Order of writes inside a mutation: shrink the source, then grow the destination.**
   Growing first would trip the sheet-wide split cap on a transient over-total.
 - **Every RPC re-validates server-side on every call** via `_require_proposal_sheet`
@@ -130,7 +128,8 @@ invoke install -m collection_receipt_proposal
 ## Testing instructions
 
 On an already-installed devel DB, default `mode=init` reports **0 tests**. Use update
-mode, and re-run the base suite too, since this module relaxes one of its invariants:
+mode, and re-run the base suite too — same-sheet splits and the sheet-wide cap now live
+in core `collection`:
 
 ```bash
 invoke test -m collection_receipt_proposal --mode=update
@@ -141,9 +140,9 @@ invoke test -m collection --mode=update
 | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `tests/test_receipt_proposal_fifo.py`    | plan / preview / recompute; idempotency; `invoice_balance` ceiling; undated last; surplus; no documents; closed frozen; overdraft self-heals; status ladder |
 | `tests/test_receipt_proposal_order.py`   | `_proposal_fifo_key` == `_compute_line_ids` order, including both fallbacks                                                                                 |
-| `tests/test_receipt_proposal_split.py`   | cross-customer split accepted in-sheet, rejected across sheets; sheet-wide cap; unify; undo; owner re-pointing                                              |
-| `tests/test_receipt_proposal_board.py`   | payload shape; `_require_proposal_sheet` rejections; ACL                                                                                                    |
-| `tests/test_receipt_proposal_actions.py` | transfer / set_circuit / impute / close / reopen and the event each writes                                                                                  |
+| `tests/test_receipt_proposal_split.py`   | cross-customer split accepted in-sheet, rejected across sheets; sheet-wide cap; unify; undo; owner re-pointing; remittance/replaced-cash lock               |
+| `tests/test_receipt_proposal_board.py`   | payload shape; `_require_proposal_sheet` rejections; ACL; replaced cash off the pool; remittance not a pool card                                            |
+| `tests/test_receipt_proposal_actions.py` | transfer / set_circuit / impute / close / reopen and the event each writes; remittance pool transfer refused                                                |
 | `tests/test_receipt_proposal_events.py`  | gated create; write/unlink refuse except sheet cascade; newest-first; ACL `1,0,1,0`; live company `ir.rule`; no `sudo()`/groups                             |
 | `tests/test_receipt_proposal_ui.py`      | static-text assertions on the JS/SCSS/XML; inherited form arch                                                                                              |
 
@@ -191,7 +190,6 @@ pre-commit run --files odoo/custom/src/private/collection_receipt_proposal/**
 4. Concurrency — two operators on the same board. Every mutation returns the full board,
    which self-heals most drift; add a `write_date` staleness check on the sheet if
    needed.
-5. The `collection.receipt` `depends` fix in `models/collection_receipt.py` belongs
-   upstream in `collection`. While it lives here, the base suite alone never exercises
-   the broken path (it never writes `amount_applied` on an existing line with a receipt
-   present).
+5. Same-sheet receipt-value boundary, the sheet-wide split cap, and receipt-total
+   `depends=` now live in core `collection`. Do not re-introduce satellite constraint or
+   `collection.receipt` field overrides for those invariants.

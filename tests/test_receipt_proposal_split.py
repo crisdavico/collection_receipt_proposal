@@ -302,3 +302,45 @@ class TestReceiptProposalSplit(ReceiptProposalCommon, TransactionCase):
         pool = {item["voucher_id"]: item for item in board["pool"]}
         self.assertIn(self.voucher.id, pool)
         self.assertEqual(pool[self.voucher.id]["free_amount"], 180.0)
+
+    def test_replaced_cash_keeps_allocation_id(self):
+        """Owner sync MUST NOT clear allocation_id of fully replaced cash."""
+        sheet = self._create_sheet(force_new=True)
+        partner = self._partner("REPL-OWNER")
+        cash = self._create_voucher(partner, sheet, amount=100.0, document_type="cash")
+        deposit = self._create_seller_deposit(sheet, amount=100.0)
+        allocation = self._create_allocation(
+            sheet,
+            partner,
+            vouchers=cash,
+            lines=[self._line_vals(invoice_balance=100.0)],
+        )
+        receipt = self._create_receipt(allocation, "invoice")
+        self._create_value(receipt, cash, 100.0)
+        self._confirm(sheet)
+        self.assertEqual(cash.allocation_id, allocation)
+        self._cash_replace(receipt, cash, deposit, 100.0)
+        self.assertFalse(cash.proposal_value_ids)
+        sheet._proposal_sync_voucher_owner(cash)
+        self.assertEqual(cash.allocation_id, allocation)
+
+    def test_remittance_does_not_receive_allocation_id_from_owner_sync(self):
+        """seller_deposit MUST stay unallocated after owner sync even with values."""
+        sheet = self._create_sheet(force_new=True)
+        partner = self._partner("REM-OWNER")
+        cash = self._create_voucher(partner, sheet, amount=100.0, document_type="cash")
+        deposit = self._create_seller_deposit(sheet, amount=100.0)
+        allocation = self._create_allocation(
+            sheet,
+            partner,
+            vouchers=cash,
+            lines=[self._line_vals(invoice_balance=100.0)],
+        )
+        receipt = self._create_receipt(allocation, "invoice")
+        self._create_value(receipt, cash, 100.0)
+        self._confirm(sheet)
+        self._cash_replace(receipt, cash, deposit, 100.0)
+        self.assertTrue(deposit.proposal_value_ids)
+        self.assertFalse(deposit.allocation_id)
+        sheet._proposal_sync_voucher_owner(deposit)
+        self.assertFalse(deposit.allocation_id)

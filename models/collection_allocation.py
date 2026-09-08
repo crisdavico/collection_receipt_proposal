@@ -183,13 +183,7 @@ class CollectionAllocation(models.Model):
 
     @api.private
     def _proposal_receipt_get_or_create(self, document_kind):
-        self.ensure_one()
-        receipt = self._proposal_receipt(document_kind)
-        if receipt:
-            return receipt
-        return self.env["collection.receipt"].create(
-            {"allocation_id": self.id, "document_kind": document_kind}
-        )
+        return self._receipt_get_or_create(document_kind)
 
     @api.private
     def _proposal_budget(self, document_kind):

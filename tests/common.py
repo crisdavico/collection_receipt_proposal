@@ -186,8 +186,38 @@ class ReceiptProposalCommon:
         """Move a sheet to `proposal`, the only state the board runs in."""
         self._mark_validated(sheet.voucher_ids)
         sheet.action_seller_close()
+        collected = sheet._cash_collected_total()
+        currency = sheet.company_id.currency_id
+        if currency.compare_amounts(collected, 0.0) > 0:
+            sheet.action_declare_cash(0.0, 0.0)
         sheet.action_confirm()
         return sheet
+
+    def _enable_seller_deposit_type(self, company=None):
+        catalog = self.env.ref("collection.document_type_seller_deposit")
+        (company or self.env.company).write(
+            {"allowed_document_type_ids": [Command.link(catalog.id)]}
+        )
+        return catalog
+
+    def _create_seller_deposit(self, sheet, amount=100.0, **extra):
+        self._enable_seller_deposit_type(sheet.company_id)
+        vals = {
+            "document_type": "seller_deposit",
+            "seller_id": sheet.seller_id.id,
+            "sheet_id": sheet.id,
+            "company_id": sheet.company_id.id,
+            "amount": amount,
+            "voucher_number": extra.pop("voucher_number", "SD-PROP"),
+            "voucher_date": extra.pop("voucher_date", date(2026, 9, 8)),
+        }
+        vals.update(extra)
+        return self.env["collection.voucher"].create(vals)
+
+    def _cash_replace(self, receipt, cash, deposit, amount):
+        return self.env["collection.receipt.value"]._cash_replace(
+            receipt, cash, deposit, amount
+        )
 
     def _create_company(self, name):
         """Persist a second company; satisfy partner.autopost_bills when present."""

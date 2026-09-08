@@ -8,47 +8,6 @@ largest-share owner pointer MUST keep voucher totals valid.
 
 ## ADDED Requirements
 
-### Requirement: Same-sheet split
-
-While this addon is installed, `_check_same_allocation` MUST accept a
-`collection.receipt.value` if and only if `voucher.sheet_id` equals `receipt.sheet_id`.
-Same-sheet cross-customer values MUST persist. Values whose voucher and receipt belong
-to different sheets MUST be refused. UNIQUE(receipt, voucher) and amount `> 0` MUST
-still hold.
-
-#### Scenario: Cross-customer same sheet accepted
-
-- GIVEN voucher V amount 100 on sheet S, primarily on customer A
-- WHEN values 40 on A's invoice receipt and 60 on customer B's invoice receipt on S
-  persist
-- THEN both MUST persist
-
-#### Scenario: Cross-sheet refused
-
-- GIVEN voucher V on sheet S1
-- WHEN a value linking V to a receipt on sheet S2 is persisted
-- THEN MUST refuse
-- AND stored rows MUST be unchanged
-
-### Requirement: Sheet-wide split cap
-
-`_check_voucher_split_cap` MUST sum ALL `collection.receipt.value` amounts of the
-voucher (MUST NOT filter by allocation). The system MUST compare that sum to the voucher
-amount with `currency.compare_amounts`. Persist MUST refuse when the sum exceeds the
-voucher amount.
-
-#### Scenario: Over-cap across customers refused
-
-- GIVEN voucher V amount 100 with 40 on A and 50 on B (same sheet)
-- WHEN a further 20 on C is persisted
-- THEN MUST refuse because 110 exceeds 100
-
-#### Scenario: At-cap allowed
-
-- GIVEN voucher V amount 100 with 40 on A
-- WHEN 60 is persisted on B
-- THEN both MUST persist
-
 ### Requirement: Largest-share owner
 
 After every mutation that changes a voucher's values, `voucher.allocation_id` MUST point
@@ -85,3 +44,41 @@ the prior assigned total. After either, the voucher MUST have exactly one value 
 - WHEN undo-split runs with `keep_value_id` = V1
 - THEN V2 MUST be gone
 - AND V1.amount MUST be 100
+
+### Requirement: Replaced cash and remittance board lock
+
+Proposal free amount MUST be `amount − assigned − replaced_amount`. A voucher whose free
+amount is `<=` 0 MUST NOT appear in the unassigned pool. `seller_deposit` remittance
+vouchers MUST NOT be pool-draggable and MUST NOT receive `allocation_id` from board owner
+sync. Replaced cash MUST keep its `allocation_id` after board mutations that do not
+assign a remaining free share. Largest-share owner and partner-identity relax MUST remain
+in this addon.
+(Previously: Free amount was `amount − assigned` only, so replaced cash reappeared in
+the pool and remittance could be dragged onto a customer.)
+
+#### Scenario: Replaced cash leaves the pool
+
+- GIVEN a cash voucher whose `replaced_amount` equals its `amount`
+- WHEN the proposal board payload is built
+- THEN that voucher MUST NOT appear in the unassigned pool
+
+#### Scenario: Partial replace remains only for the free remainder
+
+- GIVEN a cash voucher amount 100, assigned 0, replaced 40
+- WHEN the proposal board payload is built
+- THEN free amount MUST be 60
+- AND the voucher MAY appear in the pool only for 60
+
+#### Scenario: Remittance is not pool-draggable
+
+- GIVEN a `seller_deposit` with free amount greater than zero
+- WHEN a board transfer from the pool targets a customer
+- THEN MUST refuse
+- AND that voucher `allocation_id` MUST remain unset
+
+#### Scenario: Replaced cash keeps allocation_id
+
+- GIVEN replaced cash with `allocation_id` set to customer A and zero remaining values
+- WHEN a board mutation runs owner sync
+- THEN `allocation_id` MUST remain A's allocation
+- AND MUST NOT be cleared
