@@ -77,6 +77,12 @@
     box-sizing: border-box;
   }
 
+  /* The action owns its whole screen, so it renders the breadcrumb itself.
+     Pin it so the board below never squeezes it out of the flex column. */
+  > .o_control_panel {
+    flex: 0 0 auto;
+  }
+
   /* Modals, the context menu and the drawer are portaled to <body> so their
      `position: fixed` is always resolved against the viewport and they stack
      above the Odoo navbar. The wrapper repeats the root class to keep the
@@ -149,12 +155,13 @@
 
   /* ---------- circuit color assignment ---------- */
   .c-inv,
-  .circ-line.inv,
+  .rp-circ.inv,
   .cpick.inv,
   .note.inv,
   .side.to.inv,
   .ai-line.inv,
   .ai-more.inv,
+  .rp-seg button.inv,
   .trace.inv {
     --c: var(--fac);
     --c-ink: var(--fac-ink);
@@ -163,12 +170,13 @@
   }
 
   .c-quo,
-  .circ-line.quo,
+  .rp-circ.quo,
   .cpick.quo,
   .note.quo,
   .side.to.quo,
   .ai-line.quo,
   .ai-more.quo,
+  .rp-seg button.quo,
   .trace.quo {
     --c: var(--pre);
     --c-ink: var(--pre-ink);
@@ -181,6 +189,108 @@
     --c-ink: var(--ink-2);
     --c-soft: var(--clay-deep);
     --c-tint: transparent;
+  }
+
+  /* ---------- filter bar ----------
+     Cuatro controles sobre el payload que el tablero ya tiene, pagados UNA vez
+     por tablero — igual que la barra de aislar que está justo debajo. La
+     altura del carril es donde se leen los clientes, así que un control que el
+     operador fija una vez no puede costar una fila por cliente: por eso la
+     barra es una sola línea que envuelve, y `Limpiar filtros` sólo existe
+     mientras haya algo puesto. */
+  .rp-filters {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    margin: 14px 20px 0;
+    padding: 9px 16px;
+    background: var(--clay);
+    border-radius: var(--r-2);
+    box-shadow: var(--raise-sm);
+  }
+
+  .rp-filter {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+
+    &.grow {
+      flex: 1 1 220px;
+    }
+
+    input[type="search"],
+    select {
+      height: 30px;
+      min-width: 0;
+      max-width: 100%;
+      padding: 0 10px;
+      border: 0;
+      outline: none;
+      border-radius: var(--r-3);
+      background: var(--clay-deep);
+      box-shadow: var(--inset-sm);
+      color: var(--ink);
+      font-family: var(--sans);
+      font-size: 12.5px;
+
+      &:disabled {
+        color: var(--ink-3);
+        box-shadow: none;
+      }
+    }
+
+    input[type="search"] {
+      flex: 1;
+
+      &::placeholder {
+        color: var(--ink-3);
+      }
+    }
+  }
+
+  .rp-filter-lab {
+    font-size: 9.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ink-2);
+    white-space: nowrap;
+  }
+
+  /* El circuito ya tiene un canal de color en el tablero, así que el botón
+     activo lo toma prestado en vez de inventar otro acento. */
+  .rp-seg {
+    display: flex;
+    padding: 2px;
+    gap: 2px;
+    border-radius: var(--r-3);
+    background: var(--clay-deep);
+    box-shadow: var(--inset-sm);
+
+    button {
+      height: 26px;
+      padding: 0 10px;
+      border: 0;
+      border-radius: calc(var(--r-3) - 3px);
+      background: transparent;
+      color: var(--ink-2);
+      font-family: var(--sans);
+      font-size: 11.5px;
+      font-weight: 600;
+      white-space: nowrap;
+      transition: background 0.16s, color 0.16s, box-shadow 0.16s;
+
+      &:hover:not(.on) {
+        color: var(--ink);
+      }
+
+      &.on {
+        background: var(--clay);
+        color: var(--c-ink, var(--ink));
+        box-shadow: var(--raise-sm);
+      }
+    }
   }
 
   /* ---------- isolate bar ---------- */
@@ -215,8 +325,12 @@
   }
 
   .rp-col {
-    flex: 0 0 312px;
-    width: 312px;
+    /* The board splits 1:3 — `flex-basis: 0` makes the two grow factors the
+       whole story, so the pool is exactly a quarter of the board's free width
+       at every size, gap included, instead of a fixed 312px that left the
+       column cramped on a wide screen. */
+    flex: 1 1 0;
+    min-width: 272px;
     height: 100%;
     min-height: 0;
     overflow: hidden;
@@ -254,64 +368,6 @@
     box-shadow: var(--inset-sm), 0 0 0 3px rgba(232, 83, 111, 0.45);
   }
 
-  .rp-col.collapsed {
-    flex: 0 0 56px;
-    width: 56px;
-
-    .rp-col-body,
-    .rp-col-actions,
-    .circ-lines,
-    .rp-col-meta,
-    .detail-btn,
-    .hint {
-      display: none;
-    }
-
-    .rp-col-head {
-      height: 100%;
-      padding: 14px 0 16px;
-      align-items: center;
-      gap: 14px;
-      overflow: hidden;
-    }
-
-    .rp-col-title-row {
-      flex: 1;
-      min-height: 0;
-      width: 100%;
-      flex-direction: column;
-      align-items: center;
-      gap: 14px;
-    }
-
-    .rp-col-title {
-      flex: 1;
-      min-height: 0;
-      width: 100%;
-      writing-mode: vertical-rl;
-      text-orientation: mixed;
-      text-align: start;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      font-size: 13px;
-
-      small {
-        display: none;
-      }
-    }
-
-    .chip {
-      writing-mode: vertical-rl;
-      align-self: center;
-      flex: none;
-      padding: 10px 4px;
-      font-size: 10.5px;
-      max-height: 40%;
-      overflow: hidden;
-    }
-  }
-
   .collapse-btn svg,
   .detail-btn svg {
     width: 14px;
@@ -320,8 +376,171 @@
     transition: transform 0.18s;
   }
 
-  .rp-col.collapsed .collapse-btn svg {
-    transform: rotate(180deg);
+  /* ---------- column 2: the customer lane ---------- */
+  .rp-lane {
+    flex: 3 3 0;
+    min-width: 380px;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background: var(--clay);
+    border-radius: var(--r);
+    box-shadow: var(--raise);
+  }
+
+  /* The header is chrome, and the lane's height is what customers are read
+     in, so it is one line. Stacked — a title over a row of stacked
+     label/number pairs — it spent ~100px before the first card, about a whole
+     customer card. Flattened it carries the two figures the lane is read by,
+     Cobrado and Deuda: the count rides inline beside the title, the totals
+     read label-beside-number at the right of the same row, and the row wraps
+     rather than clipping on a narrow lane. Imputado and Sin imputar are
+     per-circuit questions, and the card below answers them per circuit. */
+  .rp-lane-head {
+    padding: 10px 16px 8px;
+    display: flex;
+    flex-direction: row;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 4px 18px;
+
+    .rp-col-title-row {
+      flex: 1 1 auto;
+      align-items: baseline;
+    }
+
+    .rp-col-title small {
+      display: inline;
+      margin: 0 0 0 8px;
+    }
+  }
+
+  .rp-lane-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 16px;
+
+    span {
+      display: flex;
+      align-items: baseline;
+      gap: 5px;
+      line-height: 1.2;
+
+      em {
+        font-style: normal;
+        font-size: 9.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--ink-2);
+      }
+
+      b {
+        font-family: var(--mono);
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+      }
+    }
+
+    b.neg {
+      color: var(--bad-ink);
+    }
+
+    b.dim {
+      color: var(--ink-3);
+    }
+  }
+
+  .rp-lane-body {
+    margin: 0 14px 14px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow-y: auto;
+    min-height: 84px;
+    flex: 1;
+    background: var(--clay-deep);
+    border-radius: var(--r-2);
+    box-shadow: var(--inset);
+  }
+
+  /* ---------- the customer card, holding one card per circuit ---------- */
+  .rp-cust {
+    padding: 9px 12px 10px;
+    background: var(--clay);
+    border-radius: var(--r-2);
+    box-shadow: var(--raise-sm);
+    transition: opacity 0.18s, box-shadow 0.18s;
+  }
+
+  .rp-cust.closed {
+    background: var(--clay-deep);
+    box-shadow: var(--inset-sm);
+  }
+
+  .rp-cust.dimmed {
+    opacity: 0.3;
+  }
+
+  .rp-cust.collapsed {
+    .rp-cust-body {
+      display: none;
+    }
+
+    .rp-cust-head {
+      margin-bottom: 0;
+    }
+
+    .collapse-btn svg {
+      transform: rotate(-90deg);
+    }
+  }
+
+  /* The head is the card's floor, so the two round buttons shrink with it —
+     30px elsewhere on the board, 26px here, where the row repeats per customer. */
+  .rp-cust-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 7px;
+
+    .icon-btn {
+      width: 26px;
+      height: 26px;
+    }
+  }
+
+  /* Name and CUIT share one line: stacked, the CUIT cost ~17px on every
+     customer card in the lane for a figure that is read only to confirm one. */
+  .rp-cust-title {
+    font-size: 13.5px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.25;
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+
+    small {
+      font-family: var(--mono);
+      font-size: 10.5px;
+      font-weight: 400;
+      color: var(--ink-2);
+      margin-left: 8px;
+    }
+  }
+
+  .rp-cust-body {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    align-items: start;
   }
 
   .rp-col-head {
@@ -437,31 +656,66 @@
     }
   }
 
-  /* ---------- circuit blocks ---------- */
-  .circ-lines {
+  /* ---------- circuit card, and the drop target for its circuit ---------- */
+  .rp-circ {
     display: flex;
     flex-direction: column;
-    gap: 9px;
-  }
-
-  .circ-line {
-    padding: 11px 13px 12px;
+    padding: 7px 11px 9px;
     border-radius: var(--r-3);
     background: linear-gradient(var(--c-tint), var(--c-tint)), var(--clay-deep);
     box-shadow: var(--inset-sm);
+    transition: box-shadow 0.18s;
   }
 
-  .cl-top {
+  /* A circuit with no money and no documents still accepts a drop, so it
+     collapses to a one-line strip instead of disappearing. */
+  .rp-circ.empty {
+    padding: 7px 11px;
+    background: rgba(255, 255, 255, 0.32);
+    box-shadow: none;
+    outline: 1px dashed rgba(104, 92, 163, 0.26);
+    outline-offset: -1px;
+  }
+
+  .rp-circ.empty .rp-circ-head {
+    margin-bottom: 0;
+  }
+
+  /* Expanding grows the card downwards only: it keeps its grid track, so the
+     other circuit stays put beside it instead of being pushed to a new row. */
+  .rp-circ.expanded {
+    min-width: 0;
+    box-shadow: var(--inset-sm), 0 0 0 2px var(--c);
+  }
+
+  .rp-circ.expanded .vr-date {
+    display: inline;
+  }
+
+  .rp-circ.dropping {
+    box-shadow: var(--inset-sm), 0 0 0 3px rgba(123, 110, 246, 0.45);
+  }
+
+  .rp-circ.dropping-blocked {
+    box-shadow: var(--inset-sm), 0 0 0 3px rgba(232, 83, 111, 0.45);
+  }
+
+  /* Tag, name, figures and count on ONE line. The header's middle sat empty
+     on a card that can be 1400px wide while the figures owned a row of their
+     own below it — and, expanded, a second row restating them. */
+  .rp-circ-head {
     display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 8px;
+    align-items: baseline;
+    gap: 3px 12px;
+    flex-wrap: wrap;
+    margin-bottom: 5px;
   }
 
   .ct {
     font-size: 9.5px;
     font-weight: 700;
     letter-spacing: 0.09em;
+    text-transform: uppercase;
     padding: 3px 8px;
     border-radius: 999px;
     background: var(--ct-bg, var(--ink-3));
@@ -485,22 +739,21 @@
     }
   }
 
-  .cl-lab {
-    font-size: 12px;
-    font-weight: 600;
-  }
-
-  .cl-nums {
+  /* Label beside figure on ONE line, clustered left: stacked labels cost a
+     second line on every circuit card, and `space-between` across a card that
+     can be 1400px wide tore the figures to opposite edges. */
+  .rp-circ-nums {
     display: flex;
-    gap: 10px;
-    justify-content: space-between;
+    align-items: baseline;
+    gap: 3px 12px;
+    flex-wrap: wrap;
 
     span {
-      display: flex;
-      flex-direction: column;
+      display: inline-flex;
+      align-items: baseline;
       line-height: 1.2;
       min-width: 0;
-      gap: 1px;
+      gap: 6px;
 
       em {
         font-style: normal;
@@ -515,11 +768,6 @@
         font-size: 12.5px;
         font-weight: 600;
         letter-spacing: -0.02em;
-      }
-
-      &.r {
-        text-align: right;
-        align-items: flex-end;
       }
     }
 
@@ -536,59 +784,390 @@
     }
   }
 
-  .cl-bar {
-    height: 7px;
+  .rp-circ-prog {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin-top: 2px;
+  }
+
+  .rp-circ-bar {
+    flex: 1;
+    min-width: 0;
+    height: 9px;
     border-radius: 999px;
     background: rgba(104, 92, 163, 0.13);
+    box-shadow: inset 2px 2px 4px rgba(104, 92, 163, 0.16),
+      inset -1px -1px 3px rgba(255, 255, 255, 0.5);
     overflow: hidden;
-    margin-top: 9px;
+    margin-top: 0;
 
     i {
       display: block;
       height: 100%;
       border-radius: 999px;
-      background: var(--c);
+      background: linear-gradient(90deg, rgba(255, 255, 255, 0.35), transparent 34%),
+        var(--c);
+      transition: width 0.35s ease;
 
       &.full {
-        background: var(--ok);
+        background: linear-gradient(90deg, rgba(255, 255, 255, 0.35), transparent 34%),
+          var(--ok);
+      }
+
+      &.over {
+        background: linear-gradient(90deg, rgba(255, 255, 255, 0.35), transparent 34%),
+          var(--favor);
       }
     }
   }
 
-  .cl-warn {
+  .rp-circ-pct {
+    flex: 0 0 auto;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--ink-2);
+    font-variant-numeric: tabular-nums;
+
+    &.full {
+      color: var(--ok-ink);
+    }
+  }
+
+  .rp-circ-warn {
     margin-top: 7px;
     font-size: 10.5px;
     color: var(--bad-ink);
   }
 
-  .rp-col-actions {
+  .rp-circ-count {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--ink-2);
+  }
+
+  /* The open/close affordance rides the header line the card already pays for.
+     As a 28px button in a footer of its own it cost ~36px per circuit — ~72px
+     per customer — for chrome that reads the same on every card in the lane. */
+  .rp-circ-toggle {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 0;
+    border: none;
+    background: none;
+    font: inherit;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: var(--c-ink);
+    cursor: pointer;
+
+    svg {
+      width: 11px;
+      height: 11px;
+      transition: transform 0.18s;
+    }
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  .rp-circ.expanded .rp-circ-toggle svg {
+    transform: rotate(180deg);
+  }
+
+  .rp-circ-rows {
     display: flex;
-    gap: 10px;
-    padding: 0 16px 14px;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 6px;
+  }
+
+  .rp-circ-foot {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 7px;
+    margin-top: 8px;
+    flex-wrap: wrap;
 
     .rp-btn {
-      height: 44px;
-      padding: 0 10px;
-      font-size: 12px;
-      flex: 1;
-      justify-content: center;
+      height: 28px;
+      padding: 0 12px;
+      font-size: 11.5px;
       gap: 4px;
-      flex-direction: column;
+    }
+  }
 
-      b {
-        font-family: var(--mono);
-        font-size: 12.5px;
-        font-weight: 600;
+  /* ---------- the expanded circuit's imputation detail ----------
+     The shared table rhythm is tuned for a dialog: 11px of padding on both
+     axes and a two-line document cell. Inside a card on the board that costs
+     ~56px per document and the card grows past the viewport. Here every fact
+     gets its own column so a row is ONE line, on tighter padding — and the
+     six columns are fitted to the card instead of scrolling sideways, because
+     reading an imputation means comparing Saldo against Imputado and a
+     horizontal scrollbar puts those two on different screens. */
+  .rp-circ-detail {
+    max-width: 900px;
+    margin-top: 9px;
+    padding-top: 9px;
+    border-top: 1px solid rgba(104, 92, 163, 0.16);
+    /* Half a customer card is the width these columns live within, and it
+       does not track the viewport — the board is a 1:3 split of whatever is
+       left over. So the rules below are asked of the card, not the window. */
+    container-type: inline-size;
+
+    table {
+      /* Fixed layout is what keeps six columns inside the card: each column
+         takes the share of the card it is given rather than its content's
+         natural width. The shares below are sized so that no date and no
+         figure is ever cut — only the document number gives, and it wraps
+         rather than losing the tail that identifies it. */
+      table-layout: fixed;
+      width: 100%;
+      font-size: 11px;
+    }
+
+    th,
+    td {
+      padding: 6px 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    th:first-child,
+    td:first-child {
+      padding-left: 2px;
+    }
+
+    th:last-child,
+    td:last-child {
+      padding-right: 2px;
+    }
+
+    /* Document, Vence, Emitida, Importe, Saldo, Imputado — the shares add up
+       to 100, so the row exactly fills the card at any width. */
+    th:nth-child(1) {
+      width: 22.5%;
+    }
+
+    th:nth-child(2),
+    th:nth-child(3) {
+      width: 12.5%;
+    }
+
+    th:nth-child(4),
+    th:nth-child(5) {
+      width: 17.5%;
+    }
+
+    th:nth-child(6) {
+      width: 17.5%;
+    }
+
+    /* The number is the row's identity and its tail is the part that
+       distinguishes one invoice from the next, so it takes a second line on a
+       narrow card instead of an ellipsis. Everything else stays on one. */
+    td .doc {
+      white-space: normal;
+      overflow-wrap: anywhere;
+      line-height: 1.25;
+    }
+
+    td .due {
+      font-family: var(--mono);
+    }
+
+    td .docdate {
+      color: var(--ink-3);
+    }
+
+    td .due,
+    td .docdate {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    input.imp {
+      width: 100%;
+      min-width: 0;
+      padding: 4px 5px;
+      font-size: 11px;
+    }
+
+    /* The header stays put while a long list scrolls under it. `collapse`
+       drops a sticky cell's own border, hence the inset shadow. */
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: var(--clay-deep);
+      border-bottom: none;
+      box-shadow: inset 0 -1px 0 rgba(104, 92, 163, 0.16);
+      font-size: 9.5px;
+      letter-spacing: 0.04em;
+    }
+
+    /* A customer with twenty invoices scrolls inside the card instead of
+       stretching it past the lane. Sideways it does not scroll at all. */
+    .table-wrap {
+      max-height: 38vh;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+
+    /* Below this the figures would start losing digits, so the card drops a
+       column instead. Emitida goes first: the imputation is decided on the
+       due date, and both dates stay one hover away on the row. */
+    @container (max-width: 480px) {
+      th:nth-child(3),
+      td:nth-child(3) {
+        display: none;
       }
 
-      .lb {
-        display: flex;
-        align-items: center;
-        gap: 6px;
+      th:nth-child(1) {
+        width: 23%;
+      }
+
+      th:nth-child(2) {
+        width: 15%;
+      }
+
+      th:nth-child(4),
+      th:nth-child(5) {
+        width: 20.5%;
+      }
+
+      th:nth-child(6) {
+        width: 21%;
+      }
+    }
+
+    /* Narrower still, Importe follows: what is owed today is the Saldo, and
+       the document's original amount is context rather than the decision. */
+    @container (max-width: 400px) {
+      th:nth-child(4),
+      td:nth-child(4) {
+        display: none;
+      }
+
+      th:nth-child(1) {
+        width: 24%;
+      }
+
+      th:nth-child(2) {
+        width: 20%;
+      }
+
+      th:nth-child(5) {
+        width: 27%;
+      }
+
+      th:nth-child(6) {
+        width: 29%;
+      }
+    }
+
+    /* The floor: four columns on a card barely wider than a phone. Nothing
+       else can go — which document, when it is due, what is owed and what is
+       being imputed ARE the imputation — so the type steps down instead. */
+    @container (max-width: 320px) {
+      th,
+      td {
+        padding: 5px 4px;
+      }
+
+      td.n,
+      td .due,
+      input.imp {
         font-size: 10.5px;
-        color: var(--ink-2);
-        text-transform: uppercase;
       }
+
+      input.imp {
+        padding: 4px 4px;
+      }
+    }
+  }
+
+  /* ---------- a voucher applied to a circuit: one compact row ---------- */
+  .rp-vrow-wrap {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .rp-vrow {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 10px 4px 14px;
+    border-radius: 10px;
+    background: linear-gradient(var(--c-tint), var(--c-tint)), var(--clay);
+    box-shadow: var(--raise-sm);
+    cursor: pointer;
+    transition: opacity 0.18s, box-shadow 0.18s, transform 0.18s;
+
+    &::before {
+      content: "";
+      position: absolute;
+      inset: 5px auto 5px 6px;
+      width: 3px;
+      border-radius: 999px;
+      background: var(--c);
+    }
+
+    &:hover {
+      box-shadow: var(--raise-lift);
+    }
+
+    &.dimmed {
+      opacity: 0.28;
+    }
+  }
+
+  .vr-l {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    overflow: hidden;
+
+    .pay-method {
+      min-width: 0;
+      font-size: 12.5px;
+    }
+
+    .pay-ref {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* Revealed by `.rp-circ.expanded`: a compact row has no room for it. */
+    .vr-date {
+      display: none;
+      margin-left: 8px;
+      flex: none;
+    }
+  }
+
+  .vr-r {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+
+    b.num {
+      font-family: var(--mono);
+      font-size: 12.5px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
     }
   }
 
@@ -672,6 +1251,29 @@
     color: var(--ink-2);
   }
 
+  /* El tipo de comprobante, por forma. Deliberadamente monocromo y grabado como
+     `.tag`: el color de una tarjeta significa circuito (FAC / PRE) y un segundo
+     sistema de color le robaria ese canal. 18px entra en la altura que la fila
+     ya tiene (12,5px de texto), asi que el glifo no le cuesta alto a la lane. */
+  .pay-glyph {
+    flex: none;
+    width: 18px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    background: var(--clay-deep);
+    color: var(--ink-2);
+    box-shadow: var(--inset-sm);
+
+    svg {
+      width: 11px;
+      height: 11px;
+      display: block;
+    }
+  }
+
   .rp-card-amount {
     display: flex;
     align-items: baseline;
@@ -691,8 +1293,7 @@
     }
   }
 
-  .rp-card-circ,
-  .rp-card-foot {
+  .rp-card-circ {
     display: flex;
     align-items: center;
     gap: 7px;
@@ -836,10 +1437,6 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
-
-    &.wide {
-      max-width: 900px;
-    }
   }
 
   .rp-modal-head {
@@ -1285,15 +1882,15 @@
   }
 
   input.imp {
-    width: 118px;
+    width: 100px;
     text-align: right;
     border: none;
-    border-radius: 11px;
+    border-radius: 10px;
     background: var(--clay);
     box-shadow: var(--inset-sm);
-    padding: 7px 11px;
+    padding: 5px 10px;
     font-family: var(--mono);
-    font-size: 13px;
+    font-size: 12.5px;
     outline: none;
 
     &.bad {
@@ -1445,17 +2042,18 @@
     flex: 1;
   }
 
-  .dsum {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
+  .dprog {
+    padding: 14px 16px 12px;
+    border-radius: var(--r-3);
+    background: var(--clay-deep);
+    box-shadow: var(--inset-sm);
+  }
 
-    div {
-      padding: 9px 10px;
-      border-radius: var(--r-3);
-      background: var(--clay-deep);
-      box-shadow: var(--inset-sm);
-    }
+  .dprog-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 14px;
 
     em {
       display: block;
@@ -1469,25 +2067,67 @@
     b {
       display: block;
       font-family: var(--mono);
-      font-size: 14px;
+      font-size: 18px;
       font-weight: 600;
-      margin-top: 3px;
+      line-height: 1.2;
+      margin-top: 4px;
+      color: var(--ink);
 
-      &.fav {
-        color: var(--favor-ink);
-      }
-
-      &.neg {
-        color: var(--bad-ink);
-      }
-
-      &.ok {
+      &.pos {
         color: var(--ok-ink);
       }
+    }
 
-      &.dim {
-        color: var(--ink-3);
+    .right {
+      text-align: right;
+    }
+  }
+
+  .dprog-bar {
+    position: relative;
+    height: 12px;
+    margin-top: 12px;
+    border-radius: 999px;
+    background: var(--clay);
+    box-shadow: var(--inset-sm);
+    overflow: hidden;
+
+    .fill {
+      display: block;
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--peri), var(--ok));
+      box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.35);
+      transition: width 0.35s ease;
+
+      &.full {
+        background: linear-gradient(90deg, var(--ok), #56bd7c);
       }
+
+      &.over {
+        background: linear-gradient(90deg, var(--favor), var(--peri));
+      }
+    }
+  }
+
+  .dprog-foot {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 8px;
+    font-size: 10.5px;
+    color: var(--ink-2);
+
+    b {
+      font-family: var(--mono);
+      font-weight: 600;
+      color: var(--ink);
+    }
+
+    .over-note {
+      color: var(--favor-ink);
+      text-align: right;
     }
   }
 
@@ -1665,9 +2305,11 @@
 
   /* ---------- responsive ----------
      Bootstrap's breakpoints, so the board narrows in step with the Odoo shell
-     around it. The board keeps its horizontal scroll at every size: columns get
-     narrower, never stacked, because a column IS the customer and stacking them
-     would lose the side-by-side comparison the board exists for. */
+     around it. The two columns keep their horizontal scroll at every size and
+     are never stacked: the unassigned pool has to stay visible next to the
+     customers it feeds, since dragging from one to the other is the whole
+     point. Inside the lane, the two circuit cards stack once the card gets
+     narrow; expanding one never changes its width at any size. */
   @media (max-width: 1199.98px) {
     .board {
       gap: 14px;
@@ -1675,15 +2317,25 @@
     }
 
     .rp-col {
-      flex-basis: 288px;
-      width: 288px;
+      min-width: 256px;
+    }
+
+    .rp-lane {
+      min-width: 340px;
     }
   }
 
   @media (max-width: 991.98px) {
     .rp-col {
-      flex-basis: 272px;
-      width: 272px;
+      min-width: 240px;
+    }
+
+    .rp-lane {
+      min-width: 300px;
+    }
+
+    .rp-cust-body {
+      grid-template-columns: 1fr;
     }
 
     .imp-summary {
@@ -1694,12 +2346,24 @@
       max-width: 420px;
     }
 
-    .dsum {
-      grid-template-columns: repeat(2, 1fr);
+    .dprog-head {
+      b {
+        font-size: 16px;
+      }
     }
   }
 
   @media (max-width: 767.98px) {
+    .rp-filters {
+      margin: 12px 12px 0;
+      padding: 10px 12px;
+      gap: 8px 12px;
+    }
+
+    .rp-filter.grow {
+      flex: 1 1 100%;
+    }
+
     .board {
       gap: 12px;
       padding: 12px 12px 16px;
@@ -1707,16 +2371,27 @@
     }
 
     .rp-col {
-      flex-basis: 86vw;
+      flex: 0 0 86vw;
       width: 86vw;
+      min-width: 0;
       max-width: 320px;
       scroll-snap-align: start;
     }
 
-    .rp-col.collapsed {
-      flex-basis: 52px;
-      width: 52px;
-      max-width: 52px;
+    .rp-lane {
+      flex: 0 0 92vw;
+      width: 92vw;
+      min-width: 0;
+      scroll-snap-align: start;
+    }
+
+    .rp-lane-head {
+      padding: 9px 12px 7px;
+    }
+
+    .rp-lane-body {
+      margin: 0 12px 12px;
+      padding: 10px;
     }
 
     .isolate-bar {
@@ -1731,10 +2406,6 @@
 
     .rp-modal {
       max-height: 94vh;
-    }
-
-    .rp-modal.wide {
-      max-width: none;
     }
 
     .rp-modal-head {
@@ -1770,7 +2441,7 @@
     }
 
     input.imp {
-      width: 96px;
+      width: 86px;
     }
 
     .menu {
@@ -1804,14 +2475,13 @@
       }
     }
 
-    .rp-col-actions {
-      flex-direction: column;
-      gap: 8px;
-
+    .rp-circ-foot {
       .rp-btn {
-        flex-direction: row;
-        justify-content: space-between;
-        height: 38px;
+        width: 100%;
+      }
+
+      .rp-circ-toggle {
+        margin-left: auto;
       }
     }
 

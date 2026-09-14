@@ -1,0 +1,20 @@
+schema: spec-driven
+changeName: receipt-proposal-filters
+artifactStore: openspec
+phase: apply
+artifacts:
+  proposal: done
+  specs: done
+  design: skipped
+  tasks: done
+  applyProgress: done
+  verifyReport: done
+updatedAt: "2026-09-13T00:00:00Z"
+notes: >-
+  Four client-side view controls over the board payload as it already ships: customer
+  search (accent-insensitive, name + CUIT), circuit FAC/PRE, pool payment method built
+  from the pool itself, and a lane sort order. Status chips and a hide-closed toggle
+  were offered and declined. No RPC, field, domain or security change; filter state
+  lives in the OWL component and dies with the action. Totals and counts follow the
+  filter and carry the unfiltered figure beside them; the pool's assignment chip stays
+  keyed on the unfiltered pool. Filters hide, they never disable a drop zone.

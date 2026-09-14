@@ -1,12 +1,8 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <templates xml:space="preserve">
     <t t-name="collection_receipt_proposal.ReceiptProposalAction">
-        <div
-      class="o_collection_receipt_proposal"
-      t-on-keydown="onWindowKeydown"
-      t-on-mousedown="closeMenu"
-      tabindex="-1"
-    >
+        <div class="o_collection_receipt_proposal" t-on-mousedown="closeMenu">
+            <ControlPanel />
             <div t-if="state.loading and !hasBoard" class="empty-state">
                 <p>Cargando el tablero de conciliación…</p>
             </div>
@@ -15,6 +11,7 @@
                 <p>Revisá que la planilla esté en estado Propuesta.</p>
             </div>
             <t t-else="">
+                <t t-call="collection_receipt_proposal.FilterBar" />
                 <div t-if="state.isolate" class="isolate-bar">
                     <span class="isolate-text">
                         Mostrando solo el comprobante dividido en
@@ -35,9 +32,7 @@
 
                 <main class="board">
                     <t t-call="collection_receipt_proposal.PoolColumn" />
-                    <t t-foreach="columns" t-as="column" t-key="column.allocation_id">
-                        <t t-call="collection_receipt_proposal.CustomerColumn" />
-                    </t>
+                    <t t-call="collection_receipt_proposal.CustomerLane" />
                 </main>
             </t>
 
@@ -45,7 +40,6 @@
                 <t t-portal="'body'">
                     <div
             class="o_collection_receipt_proposal o_receipt_proposal_portal"
-            t-on-keydown="onWindowKeydown"
           >
                         <t t-call="collection_receipt_proposal.ContextMenu" />
                     </div>
@@ -55,7 +49,6 @@
                 <t t-portal="'body'">
                     <div
             class="o_collection_receipt_proposal o_receipt_proposal_portal"
-            t-on-keydown="onWindowKeydown"
           >
                         <div class="overlay" t-on-mousedown="onOverlayClick">
                     <t
@@ -71,10 +64,6 @@
                 t-call="collection_receipt_proposal.UndoSplitModal"
               />
                     <t
-                t-elif="state.modal.type === 'impute'"
-                t-call="collection_receipt_proposal.ImputeModal"
-              />
-                    <t
                 t-elif="state.modal.type === 'close'"
                 t-call="collection_receipt_proposal.CloseModal"
               />
@@ -86,7 +75,6 @@
                 <t t-portal="'body'">
                     <div
             class="o_collection_receipt_proposal o_receipt_proposal_portal"
-            t-on-keydown="onWindowKeydown"
           >
                         <t t-call="collection_receipt_proposal.Drawer" />
                     </div>
@@ -95,19 +83,83 @@
         </div>
     </t>
 
+    <t t-name="collection_receipt_proposal.FilterBar">
+        <div class="rp-filters">
+            <label class="rp-filter grow">
+                <span class="rp-filter-lab">Cliente</span>
+                <input
+          type="search"
+          placeholder="Buscar por nombre o CUIT"
+          aria-label="Buscar cliente por nombre o CUIT"
+          t-model="state.filters.search"
+        />
+            </label>
+            <div class="rp-filter">
+                <span class="rp-filter-lab">Circuito</span>
+                <div class="rp-seg" role="group" aria-label="Filtrar por circuito">
+                    <button
+            type="button"
+            t-attf-class="{{ state.filters.circuit ? '' : 'on' }}"
+            t-att-aria-pressed="state.filters.circuit ? 'false' : 'true'"
+            t-on-click="() => this.setCircuitFilter('')"
+          >
+                        Todos
+                    </button>
+                    <t t-foreach="circuitKeys" t-as="kind" t-key="kind">
+                        <button
+              type="button"
+              t-attf-class="{{ circuitClass(kind) }} {{ state.filters.circuit === kind ? 'on' : '' }}"
+              t-att-aria-pressed="state.filters.circuit === kind ? 'true' : 'false'"
+              t-on-click="() => this.setCircuitFilter(kind)"
+              t-out="circuits[kind].Noun"
+            />
+                    </t>
+                </div>
+            </div>
+            <label class="rp-filter" t-if="canFilterMethod">
+                <span class="rp-filter-lab">Tipo de valor</span>
+                <select t-model="state.filters.method">
+                    <option value="">Todos los tipos</option>
+                    <t t-foreach="poolMethodOptions" t-as="option" t-key="option.code">
+                        <option t-att-value="option.code" t-out="option.label" />
+                    </t>
+                </select>
+            </label>
+            <label class="rp-filter">
+                <span class="rp-filter-lab">Orden</span>
+                <select t-model="state.filters.sort">
+                    <t t-foreach="sortOrders" t-as="order" t-key="order.key">
+                        <option t-att-value="order.key" t-out="order.label" />
+                    </t>
+                </select>
+            </label>
+            <button
+        t-if="hasFilters"
+        class="rp-btn"
+        type="button"
+        t-on-click="clearFilters"
+      >Limpiar filtros</button>
+        </div>
+    </t>
+
     <t t-name="collection_receipt_proposal.PoolColumn">
         <section
-      t-attf-class="rp-col pool {{ dropClass(null) }}"
-      t-on-dragover="(ev) => this.onColumnDragOver(ev, null)"
-      t-on-dragleave="onColumnDragLeave"
-      t-on-drop="(ev) => this.onColumnDrop(ev, null)"
+      t-attf-class="rp-col pool {{ zoneClass(null, '') }}"
+      t-on-dragover="(ev) => this.onZoneDragOver(ev, null, '')"
+      t-on-dragleave="onZoneDragLeave"
+      t-on-drop="(ev) => this.onZoneDrop(ev, null, '')"
     >
             <div class="rp-col-head">
                 <div class="rp-col-title-row">
                     <div class="rp-col-title">
                         Sin asignar
                         <small>
-                            <t t-out="pool.length" /> comprobante(s)
+                            <t t-out="visiblePool.length" />
+                            <t
+                t-if="visiblePool.length !== pool.length"
+                t-out="' de ' + pool.length"
+              />
+                            comprobante(s)
                         </small>
                     </div>
                     <span
@@ -122,11 +174,17 @@
                 <div class="rp-col-meta">
                     Pendiente de asignar
                     <b class="num" t-out="fmt(poolTotal)" />
+                    <small
+            t-if="visiblePool.length !== pool.length"
+            t-out="'de ' + fmtShort(sheetPoolTotal)"
+          />
                 </div>
-                <p class="hint">Al soltar en un cliente, elegí el circuito.</p>
+                <p class="hint">
+                    Arrastrá un valor sobre el circuito FAC o PRE del cliente.
+                </p>
             </div>
             <div class="rp-col-body">
-                <t t-foreach="pool" t-as="item" t-key="item.voucher_id">
+                <t t-foreach="visiblePool" t-as="item" t-key="item.voucher_id">
                     <article
             class="rp-card c-none"
             t-att-draggable="editable ? 'true' : 'false'"
@@ -135,6 +193,12 @@
           >
                         <div class="rp-card-top">
                             <span class="pay-method">
+                                <t t-call="collection_receipt_proposal.TypeGlyph">
+                                    <t
+                    t-set="glyph"
+                    t-value="glyphOf(item.document_type)"
+                  />
+                                </t>
                                 <t t-out="item.method" />
                                 <span class="pay-ref" t-out="item.reference" />
                             </span>
@@ -154,189 +218,378 @@
                         </div>
                     </article>
                 </t>
-                <p t-if="!pool.length" class="hint empty-hint">
-                    Todos los comprobantes están asignados.
+                <p t-if="!visiblePool.length" class="hint empty-hint">
+                    <t t-if="pool.length">
+                        Ningún comprobante sin asignar es de ese tipo.
+                    </t>
+                    <t t-else="">
+                        Todos los comprobantes están asignados.
+                    </t>
                 </p>
             </div>
         </section>
     </t>
 
-    <t t-name="collection_receipt_proposal.CustomerColumn">
-        <section
-      t-attf-class="rp-col {{ column.closed ? 'closed' : '' }} {{ isCollapsed(column.allocation_id) ? 'collapsed' : '' }} {{ isDimmedColumn(column) ? 'dimmed' : '' }} {{ dropClass(column) }}"
-      t-on-dragover="(ev) => this.onColumnDragOver(ev, column)"
-      t-on-dragleave="onColumnDragLeave"
-      t-on-drop="(ev) => this.onColumnDrop(ev, column)"
-    >
-            <div class="rp-col-head">
+    <t t-name="collection_receipt_proposal.CustomerLane">
+        <section class="rp-lane">
+            <div class="rp-lane-head">
                 <div class="rp-col-title-row">
-                    <button
-            class="icon-btn collapse-btn"
-            type="button"
-            t-att-title="isCollapsed(column.allocation_id) ? 'Expandir columna' : 'Contraer columna'"
-            t-att-aria-expanded="isCollapsed(column.allocation_id) ? 'false' : 'true'"
-            t-on-click="() => this.toggleCollapsed(column.allocation_id)"
-          >
-                        <svg
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.7"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            ><path d="M10 3 5 8l5 5" /></svg>
-                    </button>
                     <div class="rp-col-title">
-                        <t t-out="column.partner_name" />
-                        <small t-out="column.partner_vat" />
+                        Clientes con deuda
+                        <small>
+                            <t t-out="visibleColumns.length" />
+                            <t
+                t-if="visibleColumns.length !== columns.length"
+                t-out="' de ' + columns.length"
+              />
+                            cliente(s) en la planilla
+                        </small>
                     </div>
-                    <button
-            class="icon-btn detail-btn"
-            type="button"
-            title="Conciliación del cliente"
-            t-on-click="() => this.openDrawer(column.allocation_id, 'conc')"
-          >
-                        <svg
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.4"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            ><circle cx="8" cy="8" r="2.2" /><path
-                d="M8 1.5v1.7M8 12.8v1.7M14.5 8h-1.7M3.2 8H1.5M12.6 3.4l-1.2 1.2M4.6 11.4l-1.2 1.2M12.6 12.6l-1.2-1.2M4.6 4.6 3.4 3.4"
-              /></svg>
-                    </button>
+                </div>
+                <div class="rp-lane-meta">
+                    <span>
+                        <em>Cobrado</em>
+                        <b class="num" t-out="fmt(laneTotals.collected)" />
+                        <small
+              t-if="hasFilters"
+              t-out="'de ' + fmtShort(sheetTotals.collected)"
+            />
+                    </span>
+                    <span>
+                        <em>Deuda</em>
+                        <b
+              t-attf-class="num {{ laneTotals.total > 0 ? 'neg' : 'dim' }}"
+              t-out="fmt(laneTotals.total)"
+            />
+                        <small
+              t-if="hasFilters"
+              t-out="'de ' + fmtShort(sheetTotals.total)"
+            />
+                    </span>
+                </div>
+            </div>
+            <div class="rp-lane-body">
+                <t
+          t-foreach="visibleColumns"
+          t-as="column"
+          t-key="column.allocation_id"
+        >
+                    <t t-call="collection_receipt_proposal.CustomerCard" />
+                </t>
+                <p t-if="!visibleColumns.length" class="hint empty-hint">
+                    <t t-if="columns.length">
+                        Ningún cliente coincide con la búsqueda.
+                    </t>
+                    <t t-else="">
+                        La planilla no tiene clientes con deuda cargada.
+                    </t>
+                </p>
+            </div>
+        </section>
+    </t>
+
+    <t t-name="collection_receipt_proposal.CustomerCard">
+        <article
+      t-attf-class="rp-cust {{ column.closed ? 'closed' : '' }} {{ isCollapsed(column.allocation_id) ? 'collapsed' : '' }} {{ isDimmedColumn(column) ? 'dimmed' : '' }}"
+    >
+            <div class="rp-cust-head">
+                <button
+          class="icon-btn collapse-btn"
+          type="button"
+          t-att-title="isCollapsed(column.allocation_id) ? 'Expandir cliente' : 'Contraer cliente'"
+          t-att-aria-expanded="isCollapsed(column.allocation_id) ? 'false' : 'true'"
+          t-on-click="() => this.toggleCollapsed(column.allocation_id)"
+        >
+                    <svg
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.7"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          ><path d="M3 6l5 5 5-5" /></svg>
+                </button>
+                <div class="rp-cust-title">
+                    <t t-out="column.partner_name" />
+                    <small t-out="column.partner_vat" />
                 </div>
                 <span t-attf-class="chip st-{{ column.status }}">
                     <span class="dot" />
                     <t t-out="statusLabel(column.status)" />
                 </span>
-                <div class="circ-lines">
-                    <t t-foreach="circuitKeys" t-as="kind" t-key="kind">
-                        <t t-if="hasCircuit(column, kind)">
-                            <t t-call="collection_receipt_proposal.CircuitLine" />
-                        </t>
-                    </t>
-                </div>
+                <button
+          class="icon-btn detail-btn"
+          type="button"
+          title="Conciliación del cliente"
+          t-on-click="() => this.openDrawer(column.allocation_id, 'conc')"
+        >
+                    <svg
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.4"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          ><circle cx="8" cy="8" r="2.2" /><path
+              d="M8 1.5v1.7M8 12.8v1.7M14.5 8h-1.7M3.2 8H1.5M12.6 3.4l-1.2 1.2M4.6 11.4l-1.2 1.2M12.6 12.6l-1.2-1.2M4.6 4.6 3.4 3.4"
+            /></svg>
+                </button>
             </div>
-            <div class="rp-col-actions">
-                <t t-foreach="circuitKeys" t-as="kind" t-key="kind">
-                    <button
-            t-if="hasCircuit(column, kind)"
-            t-attf-class="rp-btn {{ circuitClass(kind) }}"
-            type="button"
-            t-att-disabled="column.closed or !editable"
-            t-on-click="() => this.openImpute(column.allocation_id, kind)"
-          >
-                        <span class="lb">
-                            <span
-                t-attf-class="ct {{ circuitClass(kind) }}"
-                t-out="circuits[kind].tag"
+            <div class="rp-cust-body">
+                <t t-foreach="visibleCircuitKeys" t-as="kind" t-key="kind">
+                    <t t-call="collection_receipt_proposal.CircuitCard" />
+                </t>
+            </div>
+        </article>
+    </t>
+
+    <t t-name="collection_receipt_proposal.CircuitCard">
+        <section
+      t-attf-class="rp-circ {{ circuitClass(kind) }} {{ hasCircuit(column, kind) ? '' : 'empty' }} {{ isDetailOpen(column.allocation_id, kind) ? 'expanded' : '' }} {{ zoneClass(column, kind) }}"
+      t-on-dragover="(ev) => this.onZoneDragOver(ev, column, kind)"
+      t-on-dragleave="onZoneDragLeave"
+      t-on-drop="(ev) => this.onZoneDrop(ev, column, kind)"
+    >
+            <t t-set="figures" t-value="circuitFigures(column, kind)" />
+            <t t-set="detail" t-value="detailOf(column.allocation_id, kind)" />
+            <div class="rp-circ-head">
+                <span
+          t-attf-class="ct {{ circuitClass(kind) }}"
+          t-out="circuits[kind].Noun"
+        />
+                <t t-if="hasCircuit(column, kind)">
+                    <div class="rp-circ-nums">
+                        <span>
+                            <em>Cob.</em>
+                            <b
+                t-attf-class="num {{ figures.collected ? 'pos' : 'dim' }}"
+                t-out="fmt(figures.collected)"
               />
-                            Imputar
                         </span>
-                        <b
-              class="num"
-              t-out="fmtShort(Math.max(column.circuits[kind].available, 0))"
+                        <span>
+                            <em>Deuda</em>
+                            <b
+                t-attf-class="num {{ figures.total ? '' : 'dim' }}"
+                t-out="fmt(figures.total)"
+              />
+                        </span>
+                    </div>
+                    <span class="spacer" />
+                    <span
+            class="rp-circ-count"
+            t-out="circuitCards(column, kind).length + ' valor(es)'"
+          />
+                </t>
+                <t t-else="">
+                    <span class="spacer" />
+                    <span class="hint">Sin movimientos — soltá un valor acá</span>
+                </t>
+            </div>
+            <t t-if="hasCircuit(column, kind)">
+                <t t-set="coverage" t-value="circuitCoverage(column, kind)" />
+                <div class="rp-circ-prog">
+                    <div
+            class="rp-circ-bar"
+            role="progressbar"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            t-att-aria-valuenow="coverage.percent"
+            t-att-aria-label="'Cobrado sobre la deuda de ' + circuits[kind].noun"
+          >
+                        <i
+              t-attf-class="{{ coverage.percent >= 100 ? 'full' : '' }} {{ coverage.percent > 100 ? 'over' : '' }}"
+              t-attf-style="width: {{ coverage.fill }}%"
             />
+                    </div>
+                    <span
+            t-attf-class="rp-circ-pct {{ coverage.percent >= 100 ? 'full' : '' }}"
+            t-out="coverage.percent + '%'"
+          />
+                </div>
+                <div t-if="figures.available &lt; 0" class="rp-circ-warn">
+                    ▲ Se imputaron
+                    <t t-out="fmt(-figures.available)" />
+                    más de lo cobrado en este circuito.
+                </div>
+                <div class="rp-circ-rows">
+                    <t
+            t-foreach="circuitCards(column, kind)"
+            t-as="card"
+            t-key="card.value_id"
+          >
+                        <t t-call="collection_receipt_proposal.VoucherRow" />
+                    </t>
+                    <p
+            t-if="!circuitCards(column, kind).length"
+            class="hint empty-hint"
+          >
+                        Sin valores aplicados — soltá un comprobante acá.
+                    </p>
+                </div>
+                <t t-if="detail" t-call="collection_receipt_proposal.CircuitDetail" />
+                <div class="rp-circ-foot">
+                    <span class="spacer" />
+                    <t t-if="detail">
+                        <button
+              class="rp-btn"
+              type="button"
+              t-att-disabled="imputeLocked(detail) or !detail.rows.length"
+              t-att-title="'Tope: ' + fmt(detail.budget) + ' · Mover un valor de este circuito vuelve a distribuir todo desde la deuda más antigua.'"
+              t-on-click="() => this.autoDistribute(detail)"
+            >
+                            Distribuir por antigüedad
+                        </button>
+                        <button
+              class="rp-btn primary"
+              type="button"
+              t-att-disabled="!imputeCanConfirm(detail)"
+              t-on-click="() => this.confirmImpute(detail)"
+            >
+                            Confirmar imputación
+                        </button>
+                    </t>
+                    <button
+            class="rp-circ-toggle"
+            type="button"
+            t-att-title="isDetailOpen(column.allocation_id, kind) ? 'Ocultar la imputación de este circuito' : 'Imputar esta cobranza a ' + circuits[kind].noun"
+            t-att-aria-expanded="isDetailOpen(column.allocation_id, kind) ? 'true' : 'false'"
+            t-on-click="() => this.toggleDetail(column.allocation_id, kind)"
+          >
+                        <t
+              t-out="isDetailOpen(column.allocation_id, kind) ? 'Ocultar detalle' : 'Ver detalle'"
+            />
+                        <svg
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            ><path d="M3 6l5 5 5-5" /></svg>
                     </button>
-                </t>
-            </div>
-            <div class="rp-col-body">
-                <t t-foreach="column.cards" t-as="card" t-key="card.value_id">
-                    <t t-call="collection_receipt_proposal.Card" />
-                </t>
-                <p t-if="!column.cards.length" class="hint empty-hint">
-                    Sin comprobantes — arrastrá una tarjeta acá.
-                </p>
-            </div>
+                </div>
+            </t>
         </section>
     </t>
 
-    <t t-name="collection_receipt_proposal.CircuitLine">
-        <div t-attf-class="circ-line {{ circuitClass(kind) }}">
-            <div class="cl-top">
+    <t t-name="collection_receipt_proposal.CircuitDetail">
+        <div class="rp-circ-detail">
+            <div class="table-wrap">
+                <table t-att-aria-label="'Imputar cobranza a ' + circuits[kind].noun">
+                    <thead>
+                        <tr>
+                            <th t-out="circuits[kind].doc" />
+                            <th>Vence</th>
+                            <th>Emitida</th>
+                            <th class="n">Importe</th>
+                            <th class="n">Saldo</th>
+                            <th class="n">Imputado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr t-foreach="detail.rows" t-as="row" t-key="row.line_id">
+                            <td>
+                                <div
+                  class="doc"
+                  t-att-title="row.number"
+                  t-out="row.number"
+                />
+                            </td>
+                            <td>
+                                <span
+                  class="due"
+                  t-att-title="row.due_date"
+                  t-out="fmtDate(row.due_date)"
+                />
+                            </td>
+                            <td>
+                                <span
+                  class="docdate"
+                  t-att-title="row.issue_date"
+                  t-out="fmtDate(row.issue_date)"
+                />
+                            </td>
+                            <td
+                class="n"
+                t-att-title="fmt(row.amount)"
+                t-out="fmtBare(row.amount)"
+              />
+                            <td
+                class="n"
+                t-att-title="fmt(row.balance)"
+                t-out="fmtBare(row.balance)"
+              />
+                            <td class="n">
+                                <input
+                  t-attf-class="imp num {{ imputeRowIsOver(row) ? 'bad' : '' }}"
+                  t-att-value="row.raw"
+                  t-att-disabled="imputeLocked(detail)"
+                  t-on-input="(ev) => this.onImputeInput(ev, row)"
+                />
+                            </td>
+                        </tr>
+                        <tr t-if="!detail.rows.length">
+                            <td colspan="6" class="hint">
+                                Sin documentos de este circuito para el cliente.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div t-if="imputeIsOver(detail)" class="note bad">
+                <b>!</b>
                 <span
-          t-attf-class="ct {{ circuitClass(kind) }}"
-          t-out="circuits[kind].tag"
-        />
-                <span class="cl-lab" t-out="circuits[kind].Noun" />
+        >Hay documentos imputados por encima del saldo o del cobrado.</span>
             </div>
-            <div class="cl-nums">
+            <div t-if="column.closed" class="note warn">
+                <b>!</b>
                 <span>
-                    <em>Cob.</em>
-                    <b
-            t-attf-class="num {{ column.circuits[kind].collected ? 'pos' : 'dim' }}"
-            t-out="fmt(column.circuits[kind].collected)"
-          />
+                    El cliente está cerrado en la planilla. Reabrilo para modificar la
+                    imputación.
                 </span>
-                <span class="r">
-                    <em t-out="circuits[kind].pending" />
-                    <b
-            t-attf-class="num {{ column.circuits[kind].pending > 0 ? 'neg' : 'dim' }}"
-            t-out="fmt(Math.max(column.circuits[kind].pending, 0))"
-          />
-                </span>
-            </div>
-            <div class="cl-bar">
-                <i
-          t-attf-class="{{ circuitPercent(column, kind) >= 100 ? 'full' : '' }}"
-          t-attf-style="width: {{ circuitPercent(column, kind) }}%"
-        />
-            </div>
-            <div t-if="column.circuits[kind].available &lt; 0" class="cl-warn">
-                ▲ Se imputaron
-                <t t-out="fmt(-column.circuits[kind].available)" />
-                más de lo cobrado en este circuito.
             </div>
         </div>
     </t>
 
-    <t t-name="collection_receipt_proposal.Card">
-        <article
-      t-attf-class="rp-card {{ cardClass(card) }} {{ isDimmedCard(card) ? 'dimmed' : '' }} {{ isSplitOpen(card.value_id) ? 'open-splits' : '' }}"
-      t-att-draggable="editable and !column.closed ? 'true' : 'false'"
-      t-on-dragstart="(ev) => this.onCardDragStart(ev, card)"
-      t-on-dragend="onDragEnd"
-      t-on-contextmenu="(ev) => this.openMenu(ev, card, column)"
-      t-on-click.stop="(ev) => this.openMenu(ev, card, column)"
+    <t t-name="collection_receipt_proposal.VoucherRow">
+        <div
+      t-attf-class="rp-vrow-wrap {{ isSplitOpen(card.value_id) ? 'open-splits' : '' }}"
     >
-            <div class="rp-card-top">
-                <span class="pay-method">
-                    <t t-out="card.method" />
-                    <span class="pay-ref" t-out="card.reference" />
+            <div
+        t-attf-class="rp-vrow {{ cardClass(card) }} {{ isDimmedCard(card) ? 'dimmed' : '' }}"
+        t-att-draggable="editable and !column.closed ? 'true' : 'false'"
+        t-on-dragstart="(ev) => this.onCardDragStart(ev, card)"
+        t-on-dragend="onDragEnd"
+        t-on-contextmenu="(ev) => this.openMenu(ev, card, column)"
+        t-on-click.stop="(ev) => this.openMenu(ev, card, column)"
+      >
+                <span class="vr-l">
+                    <span class="pay-method">
+                        <t t-call="collection_receipt_proposal.TypeGlyph">
+                            <t t-set="glyph" t-value="glyphOf(card.document_type)" />
+                        </t>
+                        <t t-out="card.method" />
+                        <span class="pay-ref" t-out="card.reference" />
+                    </span>
+                    <span class="pay-ref vr-date" t-out="card.date" />
                 </span>
-                <span class="pay-ref" t-out="card.date" />
-            </div>
-            <div class="rp-card-amount">
-                <span class="big num" t-out="fmt(card.amount)" />
-                <span
-          t-if="card.split_parts > 1 or card.free_amount > 0"
-          class="of"
-          t-out="'de ' + fmtShort(card.voucher_amount)"
-        />
-            </div>
-            <div class="rp-card-circ" t-att-title="circuits[card.document_kind].long">
-                <span
-          t-attf-class="ct {{ circuitClass(card.document_kind) }}"
-          t-out="circuitTag(card.document_kind)"
-        />
-            </div>
-            <div class="rp-card-foot">
-                <button
-          t-if="card.split_parts > 1"
-          class="split-tag"
-          type="button"
-          t-on-click.stop="() => this.toggleSplitOpen(card.value_id)"
-        >
-                    <t t-out="splitLabel(card)" />
-                </button>
-                <span
-          t-if="card.free_amount > 0"
-          class="tag imp-none"
-          t-out="fmtShort(card.free_amount) + ' libre'"
-        />
+                <span class="vr-r">
+                    <b class="num" t-out="fmt(card.amount)" />
+                    <button
+            t-if="card.split_parts > 1"
+            class="split-tag"
+            type="button"
+            t-att-title="splitLabel(card)"
+            t-on-click.stop="() => this.toggleSplitOpen(card.value_id)"
+          >
+                        <t t-out="splitPosition(card)" />
+                    </button>
+                    <span
+            t-if="card.free_amount > 0"
+            class="tag imp-none"
+            t-out="fmtShort(card.free_amount) + ' libre'"
+          />
+                </span>
             </div>
             <div t-if="isSplitOpen(card.value_id)" class="rp-card-splits">
                 <t
@@ -362,7 +615,66 @@
                     <span class="num" t-out="fmt(card.free_amount)" />
                 </div>
             </div>
-        </article>
+        </div>
+    </t>
+
+    <!-- El tipo de comprobante se lee por FORMA, no por color: el color de una
+         tarjeta ya significa circuito (FAC / PRE). El glifo es decorativo (la
+         etiqueta del metodo va escrita al lado), de ahi el aria-hidden. -->
+    <t t-name="collection_receipt_proposal.TypeGlyph">
+        <span class="pay-glyph" aria-hidden="true">
+            <svg
+        viewBox="0 0 16 16"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.4"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+                <t t-if="glyph === 'bank_transfer'">
+                    <path d="M2.6 5.6h8.4" /><path d="M8.8 3.4 11 5.6 8.8 7.8" /><path
+            d="M13.4 10.4H5"
+          /><path d="M7.2 8.2 5 10.4l2.2 2.2" />
+                </t>
+                <t t-elif="glyph === 'check'">
+                    <rect x="1.5" y="3.4" width="13" height="9.2" rx="1.8" /><path
+            d="M4 6.4h4"
+          /><path d="M4 10.2c.9-1.3 1.8-1.3 2.7 0s1.8 1.3 2.7 0" />
+                </t>
+                <t t-elif="glyph === 'echeck'">
+                    <rect x="1.5" y="3.4" width="13" height="9.2" rx="1.8" /><path
+            d="M3.7 6.4h1.6"
+          /><path d="M8.9 5.6 6.4 8.6h3.2L7.1 11.4" />
+                </t>
+                <t t-elif="glyph === 'cash'">
+                    <rect x="1.4" y="4" width="13.2" height="8" rx="1.8" /><circle
+            cx="8"
+            cy="8"
+            r="1.8"
+          /><path d="M4.1 6.3v3.4" /><path d="M11.9 6.3v3.4" />
+                </t>
+                <t t-elif="glyph === 'cash_deposit'">
+                    <path d="M8 1.9v6.9" /><path d="M5.5 6.4 8 8.9l2.5-2.5" /><path
+            d="M2.5 10.6v2a1.5 1.5 0 0 0 1.5 1.5h8a1.5 1.5 0 0 0 1.5-1.5v-2"
+          />
+                </t>
+                <t t-elif="glyph === 'seller_deposit'">
+                    <circle cx="6" cy="4.4" r="2.2" /><path
+            d="M1.9 13.6c0-2.3 1.8-3.8 4.1-3.8.6 0 1.2.1 1.7.3"
+          /><path d="M12.1 8.2v5.2" /><path d="M10.2 11.5l1.9 1.9 1.9-1.9" />
+                </t>
+                <t t-elif="glyph === 'retention_certificate'">
+                    <path d="M3.4 1.9h5.2l3.9 3.9v8.3H3.4z" /><path
+            d="M8.6 1.9v3.9h3.9"
+          /><path d="M5.6 8.9h4.4" /><path d="M5.6 11.2h2.9" />
+                </t>
+                <t t-else="">
+                    <circle cx="8" cy="8" r="6.1" /><path
+            d="M6.3 6.4a1.75 1.75 0 1 1 2.1 1.8c-.4.1-.6.5-.6.9v.3"
+          /><path d="M8 11.7v.5" />
+                </t>
+            </svg>
+        </span>
     </t>
 
     <t t-name="collection_receipt_proposal.ContextMenu">
@@ -381,9 +693,9 @@
             <button
         type="button"
         t-att-disabled="state.menu.closed or !editable"
-        t-on-click="() => this.openImpute(state.menu.allocation_id, state.menu.card.document_kind)"
+        t-on-click="() => this.openDetail(state.menu.allocation_id, state.menu.card.document_kind)"
       >
-                Imputar en este circuito
+                Ver detalle de este circuito
                 <span class="k" t-out="circuitTag(state.menu.card.document_kind)" />
             </button>
             <hr />
@@ -800,146 +1112,6 @@
         </div>
     </t>
 
-    <t t-name="collection_receipt_proposal.ImputeModal">
-        <div class="rp-modal wide" role="dialog" aria-modal="true">
-            <div class="rp-modal-head">
-                <h2>
-                    <span
-            t-attf-class="ct {{ circuitClass(state.modal.kind) }}"
-            t-out="circuits[state.modal.kind].tag"
-          />
-                    Imputar cobranza a
-                    <t t-out="circuits[state.modal.kind].noun" />
-                </h2>
-                <p>
-                    <t t-out="state.modal.partner_name" /> ·
-                    <t t-out="state.modal.partner_vat" />
-                </p>
-            </div>
-            <div class="rp-modal-body">
-                <div class="imp-summary">
-                    <div t-attf-class="hi {{ circuitClass(state.modal.kind) }}">
-                        <div class="lbl">
-                            Cobrado a <t t-out="circuits[state.modal.kind].noun" />
-                        </div>
-                        <div class="val num" t-out="fmtShort(state.modal.budget)" />
-                    </div>
-                    <div>
-                        <div class="lbl">Imputado</div>
-                        <div class="val num" t-out="fmtShort(imputeApplied)" />
-                    </div>
-                    <div>
-                        <div class="lbl">Sin imputar</div>
-                        <div
-              t-attf-class="val num {{ imputeAvailable &lt; 0 ? 'neg' : (imputeAvailable > 0 ? 'fav' : 'ok') }}"
-              t-out="fmtShort(imputeAvailable)"
-            />
-                    </div>
-                    <div>
-                        <div class="lbl" t-out="circuits[state.modal.kind].pending" />
-                        <div class="val num" t-out="fmtShort(imputePending)" />
-                    </div>
-                </div>
-                <div class="section-title">
-                    Comprobantes de <t t-out="circuits[state.modal.kind].noun" />
-                </div>
-                <div t-if="state.modal.cards.length" class="table-wrap">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Tipo</th>
-                                <th>Referencia</th>
-                                <th>Fecha</th>
-                                <th class="n">Importe</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr
-                t-foreach="state.modal.cards"
-                t-as="card"
-                t-key="card.value_id"
-              >
-                                <td t-out="card.method" />
-                                <td class="num" t-out="card.reference" />
-                                <td t-out="card.date" />
-                                <td class="n" t-out="fmt(card.amount)" />
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-                <p t-else="" class="hint">Sin comprobantes en este circuito.</p>
-
-                <div class="section-title" t-out="circuits[state.modal.kind].doc" />
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th t-out="circuits[state.modal.kind].doc" />
-                                <th class="n">Saldo</th>
-                                <th class="n">Imputado</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr
-                t-foreach="state.modal.rows"
-                t-as="row"
-                t-key="row.line_id"
-              >
-                                <td>
-                                    <div class="doc" t-out="row.number" />
-                                    <div class="docdate" t-out="row.due_date" />
-                                </td>
-                                <td class="n" t-out="fmt(row.balance)" />
-                                <td class="n">
-                                    <input
-                    t-attf-class="imp num {{ imputeRowIsOver(row) ? 'bad' : '' }}"
-                    t-att-value="row.raw"
-                    t-on-input="(ev) => this.onImputeInput(ev, row)"
-                  />
-                                </td>
-                            </tr>
-                            <tr t-if="!state.modal.rows.length">
-                                <td colspan="3" class="hint">
-                                    Sin documentos de este circuito para el cliente.
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-                <div class="tbl-actions">
-                    <button class="rp-btn" type="button" t-on-click="autoDistribute">
-                        Distribuir por antigüedad
-                    </button>
-                    <span class="hint">
-                        Tope: <t
-              t-out="fmt(state.modal.budget)"
-            /> · Mover una tarjeta de
-                        este circuito vuelve a distribuir todo desde la deuda más antigua.
-                    </span>
-                </div>
-                <div t-if="imputeIsOver" class="note bad">
-                    <b>!</b>
-                    <span
-          >Hay documentos imputados por encima del saldo o del cobrado.</span>
-                </div>
-            </div>
-            <div class="rp-modal-foot">
-                <span class="spacer" />
-                <button class="rp-btn" type="button" t-on-click="closeModal">
-                    Cancelar
-                </button>
-                <button
-          class="rp-btn primary"
-          type="button"
-          t-att-disabled="imputeIsOver or state.busy or !state.modal.rows.length"
-          t-on-click="confirmImpute"
-        >
-                    Confirmar imputación
-                </button>
-            </div>
-        </div>
-    </t>
-
     <t t-name="collection_receipt_proposal.CloseModal">
         <div class="rp-modal" role="dialog" aria-modal="true">
             <div class="rp-modal-head">
@@ -1044,31 +1216,37 @@
             <div class="drawer-body">
                 <t t-if="state.drawer.tab === 'conc'">
                     <t t-set="totals" t-value="drawerTotals(drawerColumn)" />
-                    <div class="dsum">
-                        <div>
-                            <em>Cobrado</em>
-                            <b t-out="fmtShort(totals.collected)" />
+                    <div class="dprog">
+                        <div class="dprog-head">
+                            <div class="dprog-fig">
+                                <em>Cobrado</em>
+                                <b class="pos" t-out="fmt(totals.collected)" />
+                            </div>
+                            <div class="dprog-fig right">
+                                <em>Deuda total</em>
+                                <b t-out="fmt(totals.debt)" />
+                            </div>
                         </div>
-                        <div>
-                            <em>Aplicado</em>
-                            <b
-                t-attf-class="{{ totals.applied ? 'ok' : 'dim' }}"
-                t-out="fmtShort(totals.applied)"
+                        <div
+              class="dprog-bar"
+              role="progressbar"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              t-att-aria-valuenow="totals.percent"
+              t-att-aria-label="'Cobrado sobre la deuda total del cliente'"
+            >
+                            <span
+                t-attf-class="fill {{ totals.percent >= 100 ? 'full' : '' }} {{ totals.percent > 100 ? 'over' : '' }}"
+                t-attf-style="width: {{ totals.fill }}%"
               />
                         </div>
-                        <div>
-                            <em>Sin aplicar</em>
-                            <b
-                t-attf-class="{{ totals.available > 0 ? 'fav' : 'dim' }}"
-                t-out="fmtShort(Math.max(totals.available, 0))"
-              />
-                        </div>
-                        <div>
-                            <em>Deuda</em>
-                            <b
-                t-attf-class="{{ totals.debt > 0 ? 'neg' : 'dim' }}"
-                t-out="fmtShort(Math.max(totals.debt, 0))"
-              />
+                        <div class="dprog-foot">
+                            <span>
+                                <b t-out="totals.percent + '%'" /> de la deuda cubierta
+                            </span>
+                            <span t-if="totals.percent > 100" class="over-note">
+                                Cobrado por encima de la deuda
+                            </span>
                         </div>
                     </div>
                     <t t-foreach="circuitKeys" t-as="kind" t-key="kind">

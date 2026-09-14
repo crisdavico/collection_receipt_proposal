@@ -17,17 +17,18 @@ Ground truth order: source under this directory → `../collection/AGENTS.md` �
 - **Stack:** Odoo 19, PostgreSQL 17, Doodba (`seedian` compose project).
   `depends: ["collection"]`, version `19.0.1.0.0`, `application: False`.
 - **Stores the validated proposal only.** It writes into the existing `collection.*`
-  models and never touches Odoo accounting. A report over this data is a separate
-  change.
+  models and never touches Odoo accounting. The report over this data is the
+  **Asignaciones** XLSX export (`action_print_receipt_assignment_xlsx`), read-only and
+  built from the same board helpers.
 
 ### The mapping (settled — this drives everything)
 
 | Board concept               | Odoo model                                           |
 | --------------------------- | ---------------------------------------------------- |
 | Board                       | one `collection.sheet` in state `proposal`           |
-| Column (customer)           | `collection.allocation` (UNIQUE per sheet+partner)   |
+| Customer card (column 2)    | `collection.allocation` (UNIQUE per sheet+partner)   |
 | Circuito **FAC** / **PRE**  | `document_kind` = `invoice` / `quotation`            |
-| Card                        | `collection.receipt.value` (voucher × amount)        |
+| Voucher row inside it       | `collection.receipt.value` (voucher × amount)        |
 | Per-(customer, circuit) box | `collection.receipt` (UNIQUE per allocation+kind)    |
 | Documento                   | `collection.allocation.line` of that `document_kind` |
 | "Imputado"                  | `collection.allocation.line.amount_applied`          |
@@ -36,18 +37,20 @@ Ground truth order: source under this directory → `../collection/AGENTS.md` �
 
 ## Repository map
 
-| Path                                                | Role                                                                                     |
-| --------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `models/collection_receipt_value.py`                | Board card payload (`_proposal_card_payload`); same-sheet/cap live in core `collection`  |
-| `models/collection_voucher.py`                      | assigned / free (− `replaced_amount`); `_proposal_card_label`; pool payload              |
-| `models/collection_allocation.py`                   | Per-circuit figures + status; the FIFO engine; per-customer close/reopen; column payload |
-| `models/collection_receipt_proposal_event.py`       | Immutable audit trail; gated create; `_proposal_log` is the only sanctioned writer       |
-| `models/collection_sheet.py`                        | `action_open_receipt_proposal` + the whole board RPC surface                             |
-| `security/ir.model.access.csv`                      | One row: event `1,0,1,0` for `base.group_user`                                           |
-| `security/collection_receipt_proposal_security.xml` | One global company `ir.rule` on the event model                                          |
-| `views/collection_receipt_proposal_views.xml`       | `ir.actions.client` + the inherited sheet-form header button                             |
-| `static/src/receipt_proposal/`                      | OWL client action, pure helpers, templates, scoped SCSS                                  |
-| `tests/common.py`                                   | Receipt-shaped fixtures replicated from `collection`'s `TestCollectionReceipt`           |
+| Path                                                | Role                                                                                                      |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `models/collection_receipt_value.py`                | Board card payload (`_proposal_card_payload`); same-sheet/cap live in core `collection`                   |
+| `models/collection_voucher.py`                      | assigned / free (− `replaced_amount`); `_proposal_card_label`; pool payload                               |
+| `models/collection_allocation.py`                   | Per-circuit figures + status (`_proposal_kind_status`); FIFO engine; close/reopen; payload                |
+| `models/collection_receipt_proposal_event.py`       | Immutable audit trail; gated create; `_proposal_log` is the only sanctioned writer                        |
+| `models/collection_sheet.py`                        | `action_open_receipt_proposal` + the whole board RPC surface                                              |
+| `models/collection_assignment_report.py`            | Asignaciones payload + `action_print_receipt_assignment_xlsx`; customer/circuit blocks, unassigned, recon |
+| `report/collection_receipt_assignment_xlsx.py`      | ORM-free xlsxwriter builder (`Resumen` + `Clientes`); formats reused from `collection`                    |
+| `security/ir.model.access.csv`                      | One row: event `1,0,1,0` for `base.group_user`                                                            |
+| `security/collection_receipt_proposal_security.xml` | One global company `ir.rule` on the event model                                                           |
+| `views/collection_receipt_proposal_views.xml`       | `ir.actions.client` + the two inherited sheet-form header buttons                                         |
+| `static/src/receipt_proposal/`                      | OWL client action (three-column board), pure helpers, templates, scoped SCSS                              |
+| `tests/common.py`                                   | Receipt-shaped fixtures replicated from `collection`'s `TestCollectionReceipt`                            |
 
 ## Domain rules (do not break)
 
@@ -58,6 +61,225 @@ Ground truth order: source under this directory → `../collection/AGENTS.md` �
   follow. `tests/test_receipt_proposal_order.py` is the guard against the two drifting.
 - **FIFO ceiling is `invoice_balance`**, never `invoice_amount`: each document absorbs
   up to what the ERP still says is owed, then spills to the next.
+- **`action_print_xlsx` MUST stay the last `type="object"` header button** on the sheet
+  form: both `collection`'s `test_collection_ui` and this addon's
+  `test_receipt_proposal_ui` assert it. New header buttons go _before_ it — the
+  Asignaciones export is injected right after `action_open_receipt_proposal`.
+- **The Asignaciones export is read-only and reuses the board's helpers**
+  (`_proposal_kind_figures`, `_proposal_kind_lines`, `_proposal_kind_status`) plus
+  `collection`'s customer codes and xlsxwriter formats. It never re-sorts documents and
+  never recomputes a figure of its own. Gated on sheet `proposal` / `closed`; mixed
+  allocation currencies raise, like the Planilla.
+- **The `Clientes` sheet speaks the Planilla's language, nested by customer.** Nine
+  columns, three heading levels that MUST stay visually distinct: navy `section` for the
+  customer, lighter `band` for the circuit, grey `minor` for a block inside it. Each
+  circuit _is_ a `collection.receipt`, so the sheet is the receipt simulation grouped
+  the way an operator reads it.
+- **Vouchers print one `Comprobantes — <tipo>` block per payment method**, each reshaped
+  to the fields that method actually has — the same idea as `collection`'s own
+  `_VOUCHER_BLOCK_COLUMNS`, generalised. A shape declares a `date` column and exactly
+  four middle columns (`_VOUCHER_AMOUNT_COL - 2`); a test pins that arithmetic. No type
+  ever carries a column that is always blank for it.
+- **Only the applied column is ever summed.** A document block sums column F
+  (`amount_applied`); a voucher block sums column I (the receipt value's share, or
+  `proposal_free_amount` in the unassigned section). `Importe del Valor` in column H is
+  for the reader and MUST NOT be subtotalled — a voucher split across two receipts would
+  be double-counted — and the voucher subtotal's label merge deliberately swallows it so
+  there is nowhere to put a wrong number. Cash-replacement amounts sit in their own
+  column D for the same reason: the move is already reflected in the voucher rows.
+- **Every total is a reference, never a recomputation.** The circuit balance reads the
+  voucher subtotal cells and the document subtotal cell; the customer total reads its
+  circuit balances; the sheet total reads the customer totals; the reconciliation reads
+  the sheet total and the unassigned total. Each carries the ORM's own figure as its
+  cached value, so a board/workbook divergence surfaces on the first recalculation. The
+  document block is therefore emitted even when empty, so that reference is always
+  valid.
+- **The palette is a ladder, and fills mean structure.** Three heading levels step dark
+  → medium → light in one blue family (`LVL1_FILL` customer, `LVL2_FILL` circuit,
+  `LVL3_FILL` block), each at least 1.4x apart in luminance and each lighter than the
+  last, with `collection`'s `HDR_BLUE` column header lighter still. Totals are ranked by
+  **rule and type, not by more fills**: a quiet `SUB_FILL` subtotal closed by a navy top
+  rule, then the dark `BALANCE_FILL` circuit band, then the customer total and the grand
+  total sharing `LVL1_FILL` and separated by font size. Data rows carry a ~1.1x
+  `ZEBRA_FILL` stripe — a hint for tracking across nine columns, never a band. The one
+  warm accent is the split-voucher flag; the Diferencia row borrows `collection`'s own
+  `_BANNER_FILL`. `tests/test_receipt_assignment_xlsx.py` pins the monotonic ladder, the
+  1.25x adjacent-fill floor and a 4.5:1 WCAG AA text floor on every pair — do not add a
+  fill without re-running it.
+- **`_receipt_formats` MUST stay additive.** It never overrides a key the shared
+  `_formats` already owns, so `Resumen` and the Planilla keep the house look byte for
+  byte. New Clientes roles get new key names.
+- **The `Clientes` sheet MUST NOT carry an autofilter.** It stacks customer, circuit,
+  block, subtotal and balance rows, so filtering would hide rows the `SUM`s still count.
+  It freezes and repeats the membrete instead.
+- **`Valores sin asignar` keeps `seller_deposit`**, unlike the board pool. The pool
+  excludes remittance because it is not an assignable card; the section exists to close
+  the reconciliation against `sum(voucher.amount)`, so a remittance holding free money
+  has to appear.
+- **The board is two columns, and the debt detail is revealed in place.** Column 1 is
+  the unassigned pool — vouchers with no relationship to any customer debt yet. Column 2
+  is the customer lane: one `.rp-cust` card per allocation, each holding exactly two
+  `.rp-circ` cards (FAC and PRE) with that circuit's figures and the voucher rows
+  applied to it. **Ver detalle** inside a circuit card expands that card in place
+  (`CircuitDetail`), revealing the documents plus the editable imputation — there is no
+  `ImputeModal` and no third column. A third column was built and removed: it spent
+  ~420px re-stating the customer and circuit the card beside it already named, and took
+  that width from the lane, leaving a circuit card ~320px wide — too narrow for the
+  four-column grid it had to hold. `tests/test_receipt_proposal_ui.py` pins the two
+  `t-call`s of `<main class="board">` in order.
+- **The detail grid is one line per document, and it never scrolls sideways.** The
+  shared `th`/`td` rhythm (11px both axes) is tuned for a dialog; inside a card nested
+  two levels deep a stacked number+dates cell costs ~56px per document and the card
+  outgrows the viewport. So `.rp-circ-detail` gives each fact its own column
+  (`Documento | Vence | Emitida | Importe | Saldo | Imputado`, ~30px a row) on its own
+  tighter padding (`6px 4px`) — the shared `td` rhythm is untouched, because the dialog
+  still needs it. The grid lives in half a customer card, which is narrower than six
+  natural columns, so it is **fitted** to the card rather than scrolled inside it:
+  `table-layout: fixed` with per-column shares that add up to 100, and the `.table-wrap`
+  scrolls on **one** axis only (`38vh` under a sticky header, so twenty invoices scroll
+  rather than stretch the lane; `overflow-x: hidden`). Reading an imputation means
+  comparing Saldo against Imputado, and a sideways scrollbar put those two on different
+  screens. When the card is too narrow even for fitted columns it **drops a column
+  rather than cut a figure**, in this order (`@container` on `.rp-circ-detail`, which is
+  sized by the card and not by the viewport): Emitida at 480px, Importe at 400px, then
+  the type steps down at 320px. Dates render short (`fmtDate` → `dd/mm/yy`) and the two
+  money columns render bare (`fmtBare`, no symbol — the column heading says which figure
+  it is and the Imputado input never had one); the full value of every cell rides on its
+  `title`. The document number is the only cell allowed to reflow — its tail is what
+  tells one invoice from the next, so it wraps instead of ending in an ellipsis. Never
+  widen the shared `td` padding over this, never re-stack a cell, and never hand a
+  column back to a horizontal scrollbar: `tests/test_receipt_proposal_ui.py` pins the
+  six columns, the one-line cells, the fitted layout, the drop order and the shares
+  summing to 100.
+- **One figures line, in the header, live while expanded.** `.rp-circ-nums` sits inside
+  `.rp-circ-head` beside the tag, the name and the value count — the header's middle was
+  empty on a card that can be 1400px wide while the figures owned a row below it, and a
+  third row restated them once expanded. `circuitFigures(column, kind)` returns the
+  payload's figures normally and the ones the operator's inputs are producing while that
+  circuit is expanded, which is what lets one line do both jobs. There is no
+  `.rp-circ-live` strip and no `.rp-circ-detail-top`; `CircuitDetail` is the grid plus
+  its warnings, with no heading and no buttons. Figures read label-beside-number and
+  wrap — never `flex-direction: column`, never `justify-content: space-between`, which
+  tore them to opposite edges. `Distribuir por antigüedad` and `Confirmar imputación`
+  share the one `.rp-circ-foot`, which renders **only while expanded**; the Ver/Ocultar
+  toggle is `.rp-circ-toggle`, last on the header line (see the density rule below). The
+  visible "Imputar cobranza a …" heading became the grid's `aria-label`: the section is
+  self-evident from the card it is inside, but the grid still needs an accessible name.
+  The FIFO warning is the `Distribuir` button's `title`, not body copy — as a sentence
+  it wrapped to two lines on every expansion. `.rp-circ-detail` is capped at
+  `max-width: 900px` so the grid reads as a block instead of a ribbon.
+- **An expanded circuit MUST keep its grid track and grow downwards**: it does not span
+  the customer card (`.rp-circ.expanded` sets no `grid-column`), so the other circuit
+  stays beside it rather than being pushed to a new row and the cards on the board never
+  change width. Half a card is narrower than six natural columns, so the grid is fitted
+  to the card it has — see the detail-grid rule above — and
+  `.rp-circ-detail .table-wrap` scrolls vertically only. Any number of circuits are
+  expanded at once (`state.details` is a list of `{allocation_id, kind, budget, rows}`
+  entries, one per open grid) — the operator compares what a customer owes across both
+  circuits, and the same circuit across customers, so closing one grid MUST leave the
+  rest open. Every impute reader takes its entry (`imputeRows(detail)`,
+  `imputeApplied(detail)`, `imputeLocked(detail)`, …) and the card reads its own with
+  `detailOf(column.allocation_id, kind)`; `Escape` closes them all at once.
+- **The lane's height is spent on figures, never on repeated chrome.** The operator
+  reads this lane by scanning customers, so every pixel a card spends is paid once per
+  customer on screen. Three rules hold the density, and none of them deletes a number:
+  the footer exists only while a circuit is expanded (`Ver detalle` is a text toggle on
+  the header line the card already draws — as a 28px button in a footer of its own it
+  cost ~36px per circuit, ~72px per customer); the CUIT rides beside the partner name
+  instead of stacking under it; and the circuit's noun lives **inside** the `.ct` pill
+  (`Facturas` / `Presupuestos`, uppercased by CSS) rather than in a `.rp-circ-lab`
+  repeating what the pill already said — which is also what keeps the four figures plus
+  the count on one header line instead of wrapping to two. A collapsed circuit is
+  therefore head + bar + rows, ~70px. If you need room, take it from chrome or from the
+  `.rp-lane-body` / `.rp-cust-body` gaps; do not drop a figure, and do not round the
+  amounts to `fmtShort` — a pending of `$ 0,40` must not read as `$ 0`.
+  `tests/test_receipt_proposal_ui.py` pins the footer's `t-if`, the header toggle, the
+  four figures, the one pill and the inline CUIT.
+- **The lane's own header is one line.** `.rp-lane-head` is paid once, before the first
+  card, and stacked — a title over a row of stacked label/number pairs — it cost ~100px
+  of the lane, about a whole customer card. It is a single wrapping flex row instead:
+  the `cliente(s)` count renders inline beside the title (`display: inline`, lane-scoped
+  so the pool column's stacked `.rp-col-head` is untouched) and the totals read
+  label-beside-number at the right of that row. It carries **two** figures, `Cobrado`
+  and `Deuda`: Imputado and Sin imputar are per-circuit questions, answered per circuit
+  by the card below and by the drawer, and summed over every customer and both circuits
+  they name nothing the operator can act on. `laneTotals` therefore sums only those two,
+  and its Deuda is `figures.total` — the documents' own `invoice_balance`, the same
+  figure a circuit card labels Deuda. It MUST NOT sum `pending` (`total - applied`):
+  netting out what is already imputed makes the lane's debt read `$ 0` on exactly the
+  board that is finished, which is the one case the header is read on. The pool column
+  keeps its taller head: it carries the chip and the drag hint, and its cards are not
+  what the operator scans.
+- **Colour means circuit; shape means payment type.** `--c` / `--c-tint` paint every
+  card's rail and tint from `document_kind`, and that is the distinction which
+  constrains imputation, so the eight `collection.voucher.document_type` codes get the
+  **shape** channel instead: a `.pay-glyph` chip rendered by
+  `collection_receipt_proposal.TypeGlyph`, one inline SVG per code with `unsupported` as
+  the `t-else` fallback. The chip is deliberately monochrome and engraved in the `.tag`
+  family (`--clay-deep` + `--inset-sm` + `--ink-2`) — a second colour system would take
+  the circuit's channel away. It rides **inside** `.pay-method`, which is already an
+  18px `inline-flex` line on both card shapes, so the glyph costs the lane no height
+  (see the density rule above), and it carries `aria-hidden` because the method label is
+  written right beside it. Both payloads therefore ship the raw `document_type` code
+  alongside the translated `method` label: the label is translatable and cannot be keyed
+  on. `tests/test_receipt_proposal_ui.py` pins the branch order, the monochrome tokens
+  and the two call sites; `tests/test_receipt_proposal_board.py` pins the payload key.
+- **The filter bar is a view over the payload, and it is paid once per board.**
+  `state.filters` holds four controls — customer search (`partner_name` + `partner_vat`,
+  case folded and diacritics stripped, so `nunez` finds `Núñez`), circuit FAC/PRE, pool
+  payment method, and the lane's sort order — and `FILTER_DEFAULTS` is their neutral
+  state. A control with nothing to choose between MUST NOT be drawn: the payment-method
+  select renders only while `canFilterMethod` (more than one `document_type` in the
+  pool) and is **never** rendered disabled — a dead control on screen reads as a broken
+  one, and `applyBoard` clears `filters.method` against what the control offers so a
+  filter never outlives its control. Every one of them reads a field
+  `get_proposal_board` already ships, so a filter MUST NOT grow an RPC, a domain or a
+  stored preference; filter state dies with the action, like `collapsed` and `details`.
+  `.rp-filters` renders once, between the ControlPanel and `<main class="board">`, as
+  one wrapping line — the lane's height is what customers are read in, so a control the
+  operator sets once MUST NEVER be paid once per customer. Matching, ordering and
+  option-building live in the helpers as pure functions; no template expression filters.
+- **Filters hide, they never disable.** A hidden circuit card stops being a drop zone
+  because it is off screen, and that is the operator's own explicit choice, reverted
+  from the same control: nothing auto-reveals on `dragstart`, no mutation clears a
+  filter, `Escape` keeps meaning "close the overlays, then every expanded circuit", and
+  no RPC argument changes. The one exception is pruning — `applyBoard` clears
+  `filters.method` when that `document_type` has left the pool, the same way it prunes
+  `collapsed` and `openSplits`; search, circuit and sort survive every refresh.
+- **The circuit filter is the ONLY sanctioned way a circuit card is hidden.**
+  `visibleCircuitKeys` narrows the customer card's loop; `hasCircuit` still decides only
+  the `.rp-circ.empty` strip, and an empty circuit still renders when its circuit is
+  visible. The circuit filter narrows cards, never the lane: a customer with no movement
+  on the filtered circuit stays listed.
+- **Figures follow the filter, and the sheet's own figure rides beside them.**
+  `laneTotals` sums `visibleColumns` over `visibleCircuitKeys`, `poolTotal` sums
+  `visiblePool`, and while `hasFilters` each shows the unfiltered figure as a muted
+  `de <total>` (`sheetTotals` / `sheetPoolTotal`, in `fmtShort`) — the idiom a partly
+  assigned pool card already uses. Both counts read `N de M`. The **pool's assignment
+  chip is exempt**: `Requiere asignación` / `Todo asignado` stays keyed on the
+  unfiltered `pool.length`, because a method filter that emptied the column MUST NOT
+  claim the planilla is finished. The lane header still carries exactly the
+  Cobrado/Deuda pair on one wrapping line. `tests/test_receipt_proposal_ui.py` pins all
+  of this.
+- **Sorting copies before it sorts.** `state.board.columns` is the server's answer and
+  the board is re-read against it on every refresh, so `sortColumns` returns a new array
+  — an in-place `sort()` would rewrite the order `name`, the default, exists to restore.
+  `debt` / `collected` / `pending` order descending on the sum over the **visible**
+  circuits of `total` / `collected` / `available`.
+- **A circuit card MUST render even when empty**, collapsed to a strip by
+  `.rp-circ.empty`: it is the drop target that creates that circuit's first receipt
+  value, so hiding it would make the circuit unreachable. `hasCircuit` decides the
+  strip, never whether the card exists.
+- **A drop zone is the pool column or one (customer, circuit) pair**, keyed
+  `` `${allocation_id}:${kind}` ``. Dropping onto FAC or PRE is what answers the circuit
+  question, so `openTransfer` receives the `kind` and the transfer modal opens with it
+  already chosen. Two circuits of the same customer therefore highlight independently.
+- **The expanded circuit's imputation grid is rebuilt from the payload, never merged.**
+  `syncDetail` runs on every `applyBoard`, because every mutation redistributes the
+  circuit by FIFO and the server is the only truth for the result. A row carries both
+  `raw` (what the operator typed) and `applied` (the parsed figure): `parseAmount` drops
+  `.` as a thousands mark, so re-parsing a seeded `String(row.applied)` would read
+  `1000.5` back as `10005`.
 - **Every change to a (customer, circuit) pair's collected total triggers a full FIFO
   redistribution of that circuit**, discarding manual `Imputar` edits. Idempotent by
   design: the result depends only on the current `receipt.total_values`, the documents'
@@ -94,6 +316,11 @@ Ground truth order: source under this directory → `../collection/AGENTS.md` �
 - **Previews run in Python** (`preview_proposal_*`) so FIFO has exactly one
   implementation. Do not port `fifoPlan` to JS. The JS debounces the transfer-amount
   input ~250 ms.
+- **The customer Drawer stays the home of history and close/reopen.** The expanded
+  circuit answers "what does this circuit owe?"; the drawer answers "is this customer
+  done?". Do not merge them. The detail is deliberately inline rather than in the
+  drawer: the drawer overlays the board, and an operator has to be able to drag a
+  voucher from the pool onto the circuit they are reading.
 - **The board is reachable only from a `proposal`-state sheet**, via the header button.
   The button sits **after** `action_open_document_review` and **before**
   `action_print_xlsx` — `collection/AGENTS.md` requires `action_print_xlsx` remain the

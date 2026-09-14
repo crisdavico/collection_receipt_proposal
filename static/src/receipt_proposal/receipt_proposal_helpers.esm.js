@@ -17,7 +17,6 @@ export const CIRCUITS = {
     Noun: "Facturas",
     doc: "Factura",
     long: "Cobrado a aplicar a Facturas",
-    pending: "Deuda",
   },
   quotation: {
     key: "quotation",
@@ -28,11 +27,28 @@ export const CIRCUITS = {
     Noun: "Presupuestos",
     doc: "Presupuesto",
     long: "Cobrado a aplicar a Presupuestos",
-    pending: "Pend.",
   },
 };
 
 export const CIRCUIT_KEYS = ["invoice", "quotation"];
+
+/* Los cuatro controles de la barra de filtros, en su estado neutro. Viven en
+   el componente y mueren con la acción: el tablero filtra un payload que ya
+   tiene, así que ningún filtro viaja al servidor. */
+export const FILTER_DEFAULTS = {search: "", circuit: "", method: "", sort: "name"};
+
+/* `name` es el orden del payload — el servidor ya devuelve las columnas por
+   nombre de cliente — y por eso es el orden por defecto. Los otros tres
+   ordenan descendente sobre la suma de los circuitos VISIBLES: el operador
+   ordena por la cifra que las tarjetas que está mirando le muestran. */
+export const SORT_ORDERS = [
+  {key: "name", label: _t("Cliente A→Z")},
+  {key: "debt", label: _t("Mayor deuda")},
+  {key: "collected", label: _t("Mayor cobrado")},
+  {key: "pending", label: _t("Más sin imputar")},
+];
+
+const SORT_FIELDS = {debt: "total", collected: "collected", pending: "available"};
 
 export const STATUS_LABELS = {
   sin_iniciar: "Sin iniciar",
@@ -65,8 +81,101 @@ export const EVENT_BULLETS = {
   split: "quo",
 };
 
+/* Los ocho `collection.voucher.document_type`. El glifo es un canal de FORMA,
+   no de color: el color de una tarjeta ya significa circuito (FAC / PRE), que
+   es lo que limita a qué documentos puede imputarse su importe. Un tipo sin
+   glifo propio cae en `unsupported`, que es un tipo real del catálogo. */
+export const DOCUMENT_TYPE_GLYPHS = [
+  "bank_transfer",
+  "check",
+  "echeck",
+  "cash",
+  "cash_deposit",
+  "seller_deposit",
+  "retention_certificate",
+  "unsupported",
+];
+
+export function glyphOf(documentType) {
+  return DOCUMENT_TYPE_GLYPHS.includes(documentType) ? documentType : "unsupported";
+}
+
 export function circuitOf(documentKind) {
   return CIRCUITS[documentKind] || null;
+}
+
+/* El filtro de circuito ESCONDE la otra tarjeta, no la borra: `hasCircuit`
+   sigue decidiendo únicamente la tira `.rp-circ.empty`, porque un circuito
+   vacío es la zona de drop que crea su primer valor de recibo. */
+export function visibleCircuitKeys(circuit) {
+  return CIRCUIT_KEYS.includes(circuit) ? [circuit] : CIRCUIT_KEYS;
+}
+
+/* Plegado de caso y de acentos: la planilla escribe `Núñez S.A.` y el
+   operador teclea `nunez`. */
+export function normalizeText(value) {
+  return String(value === undefined || value === null ? "" : value)
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .trim();
+}
+
+/* El CUIT entra en el pajar porque es el único identificador que el operador
+   lee de un comprobante que tiene en la mano. */
+export function matchesCustomer(column, search) {
+  const needle = normalizeText(search);
+  if (!needle) {
+    return true;
+  }
+  const name = normalizeText(column.partner_name);
+  const vat = normalizeText(column.partner_vat);
+  return `${name} ${vat}`.includes(needle);
+}
+
+export function columnTotals(column, kinds) {
+  const totals = {collected: 0, total: 0, available: 0};
+  for (const kind of kinds) {
+    const figures = column.circuits[kind];
+    totals.collected += figures.collected;
+    totals.total += figures.total;
+    totals.available += figures.available;
+  }
+  return totals;
+}
+
+/* Ordena sobre una COPIA. `columns` es la respuesta del servidor y el tablero
+   se relee contra ella en cada refresco, así que un `sort()` en el lugar
+   reescribiría en silencio el orden que `name` tiene que poder devolver. */
+export function sortColumns(columns, order, kinds) {
+  const field = SORT_FIELDS[order];
+  if (!field) {
+    return [...columns];
+  }
+  return [...columns].sort(
+    (left, right) =>
+      columnTotals(right, kinds)[field] - columnTotals(left, kinds)[field]
+  );
+}
+
+export function filterPool(pool, method) {
+  return method ? pool.filter((item) => item.document_type === method) : [...pool];
+}
+
+/* Las opciones salen del pool mismo, así el control nunca ofrece un filtro
+   que vaciaría la columna. La clave es el `document_type` crudo: `method` es la
+   etiqueta traducida y no se puede indexar por ella — por eso el payload
+   manda las dos. */
+export function poolMethodOptions(pool) {
+  const options = new Map();
+  for (const item of pool) {
+    if (!options.has(item.document_type)) {
+      options.set(item.document_type, {code: item.document_type, label: item.method});
+    }
+  }
+  return [...options.values()].sort((left, right) =>
+    left.label.localeCompare(right.label, "es")
+  );
 }
 
 export function splitAmount(value) {
@@ -87,6 +196,19 @@ export function formatAmount(value, currency) {
     : `${symbol} ${number}`;
 }
 
+/* The imputation table is six columns inside half a customer card, and every
+   figure in it is in the sheet's currency — so the symbol is a header's job,
+   not a cell's. Bare numbers also line the two money columns up with the
+   Imputado input, which has always taken one. */
+export function formatBare(value, currency) {
+  const decimals =
+    currency && Number.isInteger(currency.decimal_places) ? currency.decimal_places : 2;
+  return new Intl.NumberFormat("es-AR", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  }).format(splitAmount(value));
+}
+
 export function formatShort(value, currency) {
   const number = new Intl.NumberFormat("es-AR", {
     maximumFractionDigits: 0,
@@ -95,6 +217,15 @@ export function formatShort(value, currency) {
   return currency && currency.position === "after"
     ? `${number} ${symbol}`
     : `${symbol} ${number}`;
+}
+
+/* The imputation table gives a date one narrow column inside half a customer
+   card, where an ISO date costs the money columns ten characters it cannot
+   spare. The year still reads, so 2025 and 2026 stay apart. */
+export function formatShortDate(value) {
+  const text = String(value === undefined || value === null ? "" : value).trim();
+  const iso = /^(\d{4})-(\d{2})-(\d{2})/u.exec(text);
+  return iso ? `${iso[3]}/${iso[2]}/${iso[1].slice(2)}` : text;
 }
 
 export function parseAmount(raw) {
@@ -239,6 +370,7 @@ export function sanitizeBoardPayload(raw) {
         voucher_id: card.voucher_id,
         voucher_name: sanitizeText(card.voucher_name),
         method: sanitizeText(card.method),
+        document_type: glyphOf(sanitizeText(card.document_type)),
         reference: sanitizeText(card.reference),
         date: sanitizeText(card.date),
         amount: splitAmount(card.amount),
@@ -256,6 +388,7 @@ export function sanitizeBoardPayload(raw) {
       voucher_id: item.voucher_id,
       voucher_name: sanitizeText(item.voucher_name),
       method: sanitizeText(item.method),
+      document_type: glyphOf(sanitizeText(item.document_type)),
       reference: sanitizeText(item.reference),
       date: sanitizeText(item.date),
       amount: splitAmount(item.amount),

@@ -4,31 +4,45 @@ import {
   BOARD_MODEL,
   CIRCUITS,
   CIRCUIT_KEYS,
+  FILTER_DEFAULTS,
   PREVIEW_DEBOUNCE_MS,
+  SORT_ORDERS,
   cardClass,
   cardsOfVoucher,
   circuitOf,
+  columnTotals,
   eventBullet,
   eventLabel,
+  filterPool,
   formatAmount,
+  formatBare,
   formatShort,
+  formatShortDate,
+  glyphOf,
+  matchesCustomer,
   nextIsolate,
   parseAmount,
+  poolMethodOptions,
   rpcErrorMessage,
   sanitizeBoardPayload,
+  sortColumns,
   splitKind,
   statusLabel,
   transferButtonLabel,
   validateTransferAmount,
+  visibleCircuitKeys,
 } from "@collection_receipt_proposal/receipt_proposal/receipt_proposal_helpers.esm";
 import {Component, onWillStart, onWillUnmount, useState} from "@odoo/owl";
+import {ControlPanel} from "@web/search/control_panel/control_panel";
 import {_t} from "@web/core/l10n/translation";
 import {registry} from "@web/core/registry";
 import {standardActionServiceProps} from "@web/webclient/actions/action_service";
+import {useHotkey} from "@web/core/hotkeys/hotkey_hook";
 import {useService} from "@web/core/utils/hooks";
 
 export class ReceiptProposalAction extends Component {
   static template = "collection_receipt_proposal.ReceiptProposalAction";
+  static components = {ControlPanel};
   static props = {...standardActionServiceProps};
 
   setup() {
@@ -46,10 +60,13 @@ export class ReceiptProposalAction extends Component {
       menu: null,
       modal: null,
       drawer: null,
+      details: [],
       dropTarget: null,
+      filters: {...FILTER_DEFAULTS},
     });
     this.dragged = null;
     this.previewTimer = null;
+    useHotkey("escape", () => this.onEscape());
     onWillStart(() => this.loadBoard());
     onWillUnmount(() => this.clearPreviewTimer());
   }
@@ -96,7 +113,100 @@ export class ReceiptProposalAction extends Component {
   }
 
   get poolTotal() {
+    return this.visiblePool.reduce((total, item) => total + item.free_amount, 0);
+  }
+
+  /* `Requiere asignación` / `Todo asignado` y el `Pendiente de asignar` son
+     hechos de la planilla, no del filtro: una columna que un filtro de tipo
+     dejó vacía NO puede declarar que la cobranza está terminada. */
+  get sheetPoolTotal() {
     return this.pool.reduce((total, item) => total + item.free_amount, 0);
+  }
+
+  /* The customer lane's header sums what the lane is showing: the visible
+     customers, over the visible circuits. */
+  // The lane header carries the two figures the circuit cards themselves are
+  // read by — collected and debt. Imputado and Sin imputar are per-circuit
+  // questions the card below answers, so the header does not sum them.
+  // Debt is `total`, the documents' own balance, exactly what a card's Deuda
+  // shows — never `pending`, which is that balance net of what is already
+  // imputed and therefore reads $ 0 on a board that is fully distributed.
+  get laneTotals() {
+    return this.columnsTotals(this.visibleColumns, this.visibleCircuitKeys);
+  }
+
+  /* La cifra sin filtrar, que el encabezado muestra al lado de la filtrada:
+     filtrar a cinco clientes para preguntar cuánta plata hay en juego es la
+     razón por la que el operador filtra, y un encabezado que siguiera sumando
+     cuarenta y siete contestaría una pregunta que nadie hizo. */
+  get sheetTotals() {
+    return this.columnsTotals(this.columns, CIRCUIT_KEYS);
+  }
+
+  columnsTotals(columns, kinds) {
+    const totals = {collected: 0, total: 0};
+    for (const column of columns) {
+      const figures = columnTotals(column, kinds);
+      totals.collected += figures.collected;
+      totals.total += figures.total;
+    }
+    return totals;
+  }
+
+  // ----------------------------------------------------------------
+  // Filtros — vistas sobre el payload que el tablero ya tiene
+  // ----------------------------------------------------------------
+
+  /* Los filtros ESCONDEN, nunca deshabilitan. Una tarjeta oculta deja de ser
+     zona de drop porque no está en pantalla, y eso es una elección explícita
+     del operador que el mismo control revierte: nada se auto-revela al
+     arrastrar, ninguna mutación limpia un filtro y `Escape` sigue
+     significando "cerrá las capas, después los circuitos abiertos". */
+  get visibleCircuitKeys() {
+    return visibleCircuitKeys(this.state.filters.circuit);
+  }
+
+  get visibleColumns() {
+    const matched = this.columns.filter((column) =>
+      matchesCustomer(column, this.state.filters.search)
+    );
+    return sortColumns(matched, this.state.filters.sort, this.visibleCircuitKeys);
+  }
+
+  get visiblePool() {
+    return filterPool(this.pool, this.state.filters.method);
+  }
+
+  get poolMethodOptions() {
+    return poolMethodOptions(this.pool);
+  }
+
+  /* El control de tipo existe sólo cuando hay entre qué elegir: con un solo
+     tipo en el pool filtrar por él es no filtrar, y con el pool vacío no hay
+     nada que filtrar. Se ESCONDE en vez de deshabilitarse — un control muerto
+     en pantalla se lee como un control roto, que es exactamente lo que un
+     `disabled` sobre un pool vacío parecía. */
+  get canFilterMethod() {
+    return this.poolMethodOptions.length > 1;
+  }
+
+  get sortOrders() {
+    return SORT_ORDERS;
+  }
+
+  get hasFilters() {
+    const filters = this.state.filters;
+    return Object.keys(FILTER_DEFAULTS).some(
+      (key) => filters[key] !== FILTER_DEFAULTS[key]
+    );
+  }
+
+  setCircuitFilter(circuit) {
+    this.state.filters.circuit = this.state.filters.circuit === circuit ? "" : circuit;
+  }
+
+  clearFilters() {
+    this.state.filters = {...FILTER_DEFAULTS};
   }
 
   async loadBoard() {
@@ -133,9 +243,22 @@ export class ReceiptProposalAction extends Component {
       }
     }
     this.state.openSplits = this.state.openSplits.filter((id) => valueIds.has(id));
+    /* El de tipo de valor es el único filtro que puede nombrar una fila que
+       dejó de existir — asignado el último cheque, un filtro `check` dejaría
+       la columna vacía bajo un control que ya no lo ofrece, o que ya no se
+       dibuja. Se limpia contra lo que el control ofrece, no contra el pool
+       crudo, así el filtro nunca sobrevive al control que lo puso. Los otros
+       tres sobreviven a cualquier refresco. */
+    const offered = new Set(
+      this.canFilterMethod ? this.poolMethodOptions.map((option) => option.code) : []
+    );
+    if (this.state.filters.method && !offered.has(this.state.filters.method)) {
+      this.state.filters.method = "";
+    }
     if (this.state.drawer && !columnIds.has(this.state.drawer.allocation_id)) {
       this.state.drawer = null;
     }
+    this.syncDetails();
   }
 
   async runMutation(rpcCall, successMessage) {
@@ -174,6 +297,14 @@ export class ReceiptProposalAction extends Component {
     return formatShort(value, this.currency);
   }
 
+  fmtDate(value) {
+    return value ? formatShortDate(value) : "—";
+  }
+
+  fmtBare(value) {
+    return formatBare(value, this.currency);
+  }
+
   circuitOf(documentKind) {
     return circuitOf(documentKind);
   }
@@ -190,6 +321,10 @@ export class ReceiptProposalAction extends Component {
 
   cardClass(card) {
     return cardClass(card);
+  }
+
+  glyphOf(documentType) {
+    return glyphOf(documentType);
   }
 
   statusLabel(status) {
@@ -220,27 +355,61 @@ export class ReceiptProposalAction extends Component {
     return this.cardsOfVoucher(voucherId).length > 1;
   }
 
+  /* El comprobante partido se lee como "parte i de n", no como un multiplicador. */
+  splitPosition(card) {
+    const parts = this.cardsOfVoucher(card.voucher_id);
+    const index = parts.findIndex((part) => part.value_id === card.value_id);
+    const total = parts.length || card.split_parts || 1;
+    return `${index >= 0 ? index + 1 : 1}/${total}`;
+  }
+
   splitLabel(card) {
     const kind = this.splitKind(card.voucher_id);
+    const position = this.splitPosition(card);
     if (kind === "circuito") {
-      return _t("Dividido por circuito");
+      return _t("Parte %s — dividido por circuito", position);
     }
-    return _t("Dividido ×%s", this.cardsOfVoucher(card.voucher_id).length);
+    return _t("Parte %s — dividido entre clientes", position);
   }
 
   hasCircuit(column, kind) {
     return column.documents[kind].length > 0 || column.circuits[kind].collected !== 0;
   }
 
-  circuitPercent(column, kind) {
+  circuitCards(column, kind) {
+    return column.cards.filter((card) => card.document_kind === kind);
+  }
+
+  /* The card header carries this circuit's figures, and while the circuit is
+     expanded it carries the ones the operator's own inputs are producing —
+     otherwise the detail would need a second figures line restating them. */
+  circuitFigures(column, kind) {
     const figures = column.circuits[kind];
-    if (!figures.total) {
-      return 0;
+    const detail = this.detailOf(column.allocation_id, kind);
+    if (!detail) {
+      return figures;
     }
-    return Math.min(
-      Math.max(Math.round((figures.applied / figures.total) * 100), 0),
-      100
-    );
+    const applied = this.imputeApplied(detail);
+    return {
+      ...figures,
+      applied,
+      available: figures.collected - applied,
+      pending: this.imputePending(detail),
+    };
+  }
+
+  circuitCoverage(column, kind) {
+    const figures = column.circuits[kind];
+    let ratio = 0;
+    if (figures.total > 0) {
+      ratio = (figures.collected / figures.total) * 100;
+    } else if (figures.collected > 0) {
+      ratio = 100;
+    }
+    return {
+      percent: Math.max(Math.round(ratio), 0),
+      fill: Math.min(Math.max(ratio, 0), 100),
+    };
   }
 
   isCollapsed(allocationId) {
@@ -315,38 +484,42 @@ export class ReceiptProposalAction extends Component {
     this.state.dropTarget = null;
   }
 
-  dropKey(column) {
-    return column ? column.allocation_id : "pool";
+  /* A drop zone is the pool column or one (customer, circuit) card: dropping
+     onto FAC or PRE already answers the circuit question the modal used to
+     ask. The whole card is the target, not just the rows holding vouchers. */
+  zoneKey(column, kind) {
+    return column ? `${column.allocation_id}:${kind}` : "pool";
   }
 
-  /* The whole column is the drop target, not just the area holding cards. */
-  onColumnDragOver(ev, column) {
+  onZoneDragOver(ev, column, kind) {
     if (!this.dragged) {
       return;
     }
     ev.preventDefault();
+    ev.stopPropagation();
     ev.dataTransfer.dropEffect = column && column.closed ? "none" : "move";
-    const key = this.dropKey(column);
+    const key = this.zoneKey(column, kind);
     if (this.state.dropTarget !== key) {
       this.state.dropTarget = key;
     }
   }
 
-  onColumnDragLeave(ev) {
+  onZoneDragLeave(ev) {
     if (!ev.currentTarget.contains(ev.relatedTarget)) {
       this.state.dropTarget = null;
     }
   }
 
-  dropClass(column) {
-    if (this.state.dropTarget !== this.dropKey(column)) {
+  zoneClass(column, kind) {
+    if (this.state.dropTarget !== this.zoneKey(column, kind)) {
       return "";
     }
     return column && column.closed ? "dropping-blocked" : "dropping";
   }
 
-  onColumnDrop(ev, column) {
+  onZoneDrop(ev, column, kind) {
     ev.preventDefault();
+    ev.stopPropagation();
     const dragged = this.dragged;
     this.dragged = null;
     this.state.dropTarget = null;
@@ -363,7 +536,7 @@ export class ReceiptProposalAction extends Component {
     if (!column && !dragged.value_id) {
       return;
     }
-    this.openTransfer(dragged, column ? column.allocation_id : null);
+    this.openTransfer(dragged, column ? column.allocation_id : null, kind);
   }
 
   // ----------------------------------------------------------------
@@ -394,7 +567,7 @@ export class ReceiptProposalAction extends Component {
   // Transfer modal
   // ----------------------------------------------------------------
 
-  openTransfer(source, toAllocationId) {
+  openTransfer(source, toAllocationId, kind) {
     this.closeMenu();
     const card = source.value_id
       ? this.findCard(source.value_id)
@@ -412,7 +585,7 @@ export class ReceiptProposalAction extends Component {
       source_kind: source.value_id ? card.document_kind : "",
       source_allocation_id: source.value_id ? this.allocationOfCard(card) : null,
       to_allocation_id: toAllocationId,
-      kind: "",
+      kind: toAllocationId ? kind || "" : "",
       amount: maximum,
       raw_amount: String(maximum),
       maximum,
@@ -726,81 +899,164 @@ export class ReceiptProposalAction extends Component {
   }
 
   // ----------------------------------------------------------------
-  // Manual imputation modal
+  // The expanded circuit: one circuit of one customer, with its imputation
   // ----------------------------------------------------------------
 
-  openImpute(allocationId, kind) {
+  /* Any number of circuits stay expanded at once: comparing what one customer
+     owes on two circuits, or the same circuit across customers, is the whole
+     job — so each grid owns its own entry and closing one leaves the rest. */
+  openDetail(allocationId, kind) {
     this.closeMenu();
-    const column = this.columnById(allocationId);
+    if (!this.columnById(allocationId) || !CIRCUIT_KEYS.includes(kind)) {
+      return;
+    }
+    if (this.isDetailOpen(allocationId, kind)) {
+      return;
+    }
+    const detail = {
+      allocation_id: allocationId,
+      kind,
+      budget: 0,
+      rows: [],
+    };
+    this.state.details = [...this.state.details, detail];
+    this.syncDetail(detail);
+  }
+
+  closeDetail(allocationId, kind) {
+    this.state.details = this.state.details.filter(
+      (detail) => detail.allocation_id !== allocationId || detail.kind !== kind
+    );
+  }
+
+  closeAllDetails() {
+    this.state.details = [];
+  }
+
+  toggleDetail(allocationId, kind) {
+    if (this.isDetailOpen(allocationId, kind)) {
+      this.closeDetail(allocationId, kind);
+      return;
+    }
+    this.openDetail(allocationId, kind);
+  }
+
+  detailOf(allocationId, kind) {
+    return (
+      this.state.details.find(
+        (detail) => detail.allocation_id === allocationId && detail.kind === kind
+      ) || null
+    );
+  }
+
+  isDetailOpen(allocationId, kind) {
+    return Boolean(this.detailOf(allocationId, kind));
+  }
+
+  detailColumn(detail) {
+    return detail ? this.columnById(detail.allocation_id) : null;
+  }
+
+  /* The server is the only truth for the imputation grid: every mutation
+     redistributes the circuit by FIFO, so local edits are rebuilt from the
+     refreshed payload rather than merged into it. */
+  syncDetails() {
+    this.state.details = this.state.details.filter((detail) =>
+      Boolean(this.columnById(detail.allocation_id))
+    );
+    for (const detail of this.state.details) {
+      this.syncDetail(detail);
+    }
+  }
+
+  syncDetail(detail) {
+    const column = this.columnById(detail.allocation_id);
     if (!column) {
       return;
     }
-    this.state.modal = {
-      type: "impute",
-      allocation_id: allocationId,
-      partner_name: column.partner_name,
-      partner_vat: column.partner_vat,
-      kind,
-      budget: column.circuits[kind].collected,
-      rows: column.documents[kind].map((row) => ({
-        line_id: row.line_id,
-        number: row.number,
-        due_date: row.due_date,
-        balance: row.balance,
-        amount: row.applied,
-        raw: String(row.applied),
-      })),
-      cards: column.cards.filter((card) => card.document_kind === kind),
-    };
+    detail.budget = column.circuits[detail.kind].collected;
+    detail.rows = column.documents[detail.kind].map((row) => ({
+      line_id: row.line_id,
+      number: row.number,
+      issue_date: row.issue_date,
+      due_date: row.due_date,
+      amount: row.amount,
+      balance: row.balance,
+      applied: row.applied,
+      raw: String(row.applied),
+    }));
+  }
+
+  imputeLocked(detail) {
+    const column = this.detailColumn(detail);
+    return Boolean(!this.editable || !column || column.closed || this.state.busy);
+  }
+
+  imputeCanConfirm(detail) {
+    return Boolean(
+      detail &&
+        detail.rows.length &&
+        !this.imputeLocked(detail) &&
+        !this.imputeIsOver(detail)
+    );
   }
 
   onImputeInput(ev, row) {
     row.raw = ev.target.value;
     const parsed = parseAmount(ev.target.value);
-    row.amount = Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+    row.applied = Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
   }
 
-  get imputeApplied() {
-    return this.state.modal.rows.reduce((total, row) => total + row.amount, 0);
+  imputeRowAmount(row) {
+    return row.applied;
   }
 
-  get imputeAvailable() {
-    return this.state.modal.budget - this.imputeApplied;
+  imputeRows(detail) {
+    return detail ? detail.rows : [];
   }
 
-  get imputePending() {
-    return this.state.modal.rows.reduce(
-      (total, row) => total + Math.max(row.balance - row.amount, 0),
+  imputeApplied(detail) {
+    return this.imputeRows(detail).reduce(
+      (total, row) => total + this.imputeRowAmount(row),
+      0
+    );
+  }
+
+  imputeAvailable(detail) {
+    return (detail ? detail.budget : 0) - this.imputeApplied(detail);
+  }
+
+  imputePending(detail) {
+    return this.imputeRows(detail).reduce(
+      (total, row) => total + Math.max(row.balance - this.imputeRowAmount(row), 0),
       0
     );
   }
 
   imputeRowIsOver(row) {
-    return row.amount > row.balance + 0.001;
+    return this.imputeRowAmount(row) > row.balance + 0.001;
   }
 
-  get imputeIsOver() {
+  imputeIsOver(detail) {
     return (
-      this.imputeAvailable < -0.001 ||
-      this.state.modal.rows.some((row) => this.imputeRowIsOver(row))
+      this.imputeAvailable(detail) < -0.001 ||
+      this.imputeRows(detail).some((row) => this.imputeRowIsOver(row))
     );
   }
 
-  async autoDistribute() {
-    const modal = this.state.modal;
+  async autoDistribute(detail) {
     try {
       const preview = await this.orm.call(BOARD_MODEL, "preview_proposal_impute", [
         this.sheetId,
-        modal.allocation_id,
-        modal.kind,
+        detail.allocation_id,
+        detail.kind,
       ]);
       const changes = new Map(
         (preview.changes || []).map((change) => [change.line_id, change.to])
       );
-      for (const row of modal.rows) {
+      for (const row of detail.rows) {
         if (changes.has(row.line_id)) {
-          row.amount = changes.get(row.line_id);
-          row.raw = String(row.amount);
+          row.raw = String(changes.get(row.line_id));
         }
       }
       this.notification.add(_t("Cobrado distribuido desde la deuda más antigua."), {
@@ -811,21 +1067,20 @@ export class ReceiptProposalAction extends Component {
     }
   }
 
-  async confirmImpute() {
-    const modal = this.state.modal;
-    const done = await this.runMutation(
+  async confirmImpute(detail) {
+    await this.runMutation(
       () =>
         this.orm.call(BOARD_MODEL, "action_proposal_impute", [
           this.sheetId,
-          modal.allocation_id,
-          modal.kind,
-          modal.rows.map((row) => ({line_id: row.line_id, amount: row.amount})),
+          detail.allocation_id,
+          detail.kind,
+          detail.rows.map((row) => ({
+            line_id: row.line_id,
+            amount: this.imputeRowAmount(row),
+          })),
         ]),
       _t("Imputación confirmada.")
     );
-    if (done) {
-      this.closeModal();
-    }
   }
 
   // ----------------------------------------------------------------
@@ -946,13 +1201,24 @@ export class ReceiptProposalAction extends Component {
   }
 
   drawerTotals(column) {
-    const invoice = column.circuits.invoice;
-    const quotation = column.circuits.quotation;
+    let collected = 0;
+    let debt = 0;
+    for (const kind of CIRCUIT_KEYS) {
+      const figures = column.circuits[kind];
+      collected += figures.collected;
+      debt += figures.total;
+    }
+    let ratio = 0;
+    if (debt > 0) {
+      ratio = (collected / debt) * 100;
+    } else if (collected > 0) {
+      ratio = 100;
+    }
     return {
-      collected: invoice.collected + quotation.collected,
-      applied: invoice.applied + quotation.applied,
-      available: invoice.available + quotation.available,
-      debt: invoice.pending,
+      collected,
+      debt,
+      percent: Math.round(ratio),
+      fill: Math.min(Math.max(ratio, 0), 100),
     };
   }
 
@@ -971,12 +1237,14 @@ export class ReceiptProposalAction extends Component {
     }
   }
 
-  onWindowKeydown(ev) {
-    if (ev.key === "Escape") {
+  onEscape() {
+    if (this.state.menu || this.state.modal || this.state.drawer) {
       this.closeMenu();
       this.closeModal();
       this.closeDrawer();
+      return;
     }
+    this.closeAllDetails();
   }
 
   schedulePreview(callback) {
