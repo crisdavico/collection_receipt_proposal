@@ -857,27 +857,6 @@
                     </span>
                 </div>
 
-                <t t-if="state.modal.to_allocation_id">
-                    <div class="pick-lab">Circuito de aplicación · obligatorio</div>
-                    <div class="circ-pick">
-                        <button
-              t-foreach="circuitKeys"
-              t-as="kind"
-              t-key="kind"
-              type="button"
-              t-attf-class="cpick slim {{ circuitClass(kind) }} {{ state.modal.kind === kind ? 'on' : '' }}"
-              t-on-click="() => this.setTransferKind(kind)"
-            >
-                            <span
-                t-attf-class="ct {{ circuitClass(kind) }}"
-                t-out="circuits[kind].tag"
-              />
-                            <span class="t" t-out="circuits[kind].Noun" />
-                            <span class="rp-mark">✓</span>
-                        </button>
-                    </div>
-                </t>
-
                 <div t-if="transferTwin" class="radios">
                     <label t-attf-class="{{ state.modal.unify ? 'sel' : '' }}">
                         <input
@@ -943,14 +922,7 @@
                     </div>
                 </div>
 
-                <div
-          t-if="state.modal.to_allocation_id and !state.modal.kind"
-          class="note warn"
-        >
-                    <b>!</b>
-                    <span>Elegí el circuito de aplicación.</span>
-                </div>
-                <div t-elif="transferIsNoop" class="note warn">
+                <div t-if="transferIsNoop" class="note warn">
                     <b>!</b>
                     <span>Ya está en ese circuito. Elegí el otro para dividirlo.</span>
                 </div>
