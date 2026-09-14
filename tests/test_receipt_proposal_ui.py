@@ -650,6 +650,46 @@ class TestReceiptProposalUi(TransactionCase):
         self.assertIn("display: flex", circuit)
         self.assertIn("flex-direction: column", circuit)
 
+    def test_transfer_modal_never_re_asks_the_circuit(self):
+        """RED/GREEN: the drop already chose FAC or PRE, so the modal does not.
+
+        Two cards per customer means the gesture names the circuit. A picker
+        inside the modal made the operator answer twice and let them contradict
+        the card they aimed at. The picker belongs to the Cambiar circuito
+        modal, which is the one entry point with no target circuit.
+        """
+        root = etree.fromstring(self._asset("receipt_proposal_action.xml").encode())
+        modal = root.xpath('//t[@t-name="collection_receipt_proposal.TransferModal"]')[
+            0
+        ]
+        rendered = etree.tostring(modal, encoding="unicode")
+        self.assertNotIn("circ-pick", rendered)
+        self.assertNotIn("setTransferKind", rendered)
+        self.assertNotIn("Circuito de aplicación", rendered)
+        self.assertNotIn("Elegí el circuito", rendered)
+        # The target circuit is still shown — it is stated, not asked.
+        self.assertIn("tstrip", rendered)
+        source = self._asset("receipt_proposal_action.esm.js")
+        self.assertNotIn("setTransferKind", source)
+        # The Cambiar circuito modal keeps its picker.
+        circuit = root.xpath('//t[@t-name="collection_receipt_proposal.CircuitModal"]')[
+            0
+        ]
+        self.assertIn("circ-pick", etree.tostring(circuit, encoding="unicode"))
+
+    def test_dropping_a_value_on_its_own_circuit_is_ignored(self):
+        """RED/GREEN: a self-drop opens no modal.
+
+        With the circuit pre-answered there is nothing left to change, so the
+        modal would open with Cancelar as its only live button.
+        """
+        source = self._asset("receipt_proposal_action.esm.js")
+        drop = source.split("  onZoneDrop(ev, column, kind) {", 1)[1].split(
+            "\n  }\n", 1
+        )[0]
+        self.assertIn("card.document_kind === kind", drop)
+        self.assertIn("this.allocationOfCard(card) === column.allocation_id", drop)
+
     def test_board_columns_fill_their_height(self):
         """RED/GREEN: the three columns stretch, so neither ends short."""
         scss = self._asset("receipt_proposal_action.scss")
