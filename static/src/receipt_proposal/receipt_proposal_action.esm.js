@@ -536,6 +536,18 @@ export class ReceiptProposalAction extends Component {
     if (!column && !dragged.value_id) {
       return;
     }
+    /* Dropped back onto the circuit it already sits in: not a transfer, and the
+       circuit is no longer a question the modal could re-ask. Ignore it. */
+    if (column && dragged.value_id) {
+      const card = this.findCard(dragged.value_id);
+      if (
+        card &&
+        card.document_kind === kind &&
+        this.allocationOfCard(card) === column.allocation_id
+      ) {
+        return;
+      }
+    }
     this.openTransfer(dragged, column ? column.allocation_id : null, kind);
   }
 
@@ -689,16 +701,6 @@ export class ReceiptProposalAction extends Component {
       return false;
     }
     return this.transferIsUnify || !modal.error;
-  }
-
-  setTransferKind(kind) {
-    const modal = this.state.modal;
-    if (modal.kind === kind) {
-      return;
-    }
-    modal.kind = kind;
-    modal.unify = true;
-    this.syncTransfer();
   }
 
   onTransferAmountInput(ev) {
