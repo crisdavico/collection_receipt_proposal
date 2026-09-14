@@ -273,14 +273,14 @@ Ground truth order: source under this directory → `../collection/AGENTS.md` �
 - **A drop zone is the pool column or one (customer, circuit) pair**, keyed
   `` `${allocation_id}:${kind}` ``. Dropping onto FAC or PRE is what answers the circuit
   question, so `openTransfer` receives the `kind` and **the transfer modal MUST NOT ask
-  for it again** — there is no circuit picker and no `setTransferKind` on that modal, only
-  the `tstrip` showing where the value is going. The gesture already said it; re-asking
-  made the operator answer twice and let them contradict the card they aimed at. The
-  picker lives on the **Cambiar circuito** modal (`openCircuit`), which is the entry point
-  that genuinely has no target circuit. Two circuits of the same customer therefore
-  highlight independently, and dropping a value back onto the circuit it already sits in
-  is ignored in `onZoneDrop` rather than opening a modal whose only live button is
-  Cancelar — `transferIsNoop` stays as the guard behind it.
+  for it again** — there is no circuit picker and no `setTransferKind` on that modal,
+  only the `tstrip` showing where the value is going. The gesture already said it;
+  re-asking made the operator answer twice and let them contradict the card they aimed
+  at. The picker lives on the **Cambiar circuito** modal (`openCircuit`), which is the
+  entry point that genuinely has no target circuit. Two circuits of the same customer
+  therefore highlight independently, and dropping a value back onto the circuit it
+  already sits in is ignored in `onZoneDrop` rather than opening a modal whose only live
+  button is Cancelar — `transferIsNoop` stays as the guard behind it.
 - **The expanded circuit's imputation grid is rebuilt from the payload, never merged.**
   `syncDetail` runs on every `applyBoard`, because every mutation redistributes the
   circuit by FIFO and the server is the only truth for the result. A row carries both
