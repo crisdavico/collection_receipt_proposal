@@ -189,7 +189,7 @@ class ReceiptProposalCommon:
         collected = sheet._cash_collected_total()
         currency = sheet.company_id.currency_id
         if currency.compare_amounts(collected, 0.0) > 0:
-            sheet.action_declare_cash(0.0, 0.0)
+            sheet.action_declare_cash(commission_withheld=0.0)
         sheet.action_confirm()
         return sheet
 
@@ -329,10 +329,16 @@ class ReceiptProposalCommon:
         first = self._partner("PROP-A")
         second = self._partner("PROP-B")
         voucher_a = self._create_voucher(
-            first, sheet, amount=kwargs.get("amount_a", 300.0)
+            first,
+            sheet,
+            amount=kwargs.get("amount_a", 300.0),
+            **kwargs.get("extra_a", {}),
         )
         voucher_b = self._create_voucher(
-            second, sheet, amount=kwargs.get("amount_b", 100.0)
+            second,
+            sheet,
+            amount=kwargs.get("amount_b", 100.0),
+            **kwargs.get("extra_b", {}),
         )
         allocation_a = self._create_allocation(
             sheet,

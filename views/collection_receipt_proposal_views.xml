@@ -18,6 +18,12 @@
           class="oe_highlight"
           invisible="not id or state != 'proposal'"
         />
+                <button
+          name="action_print_receipt_assignment_xlsx"
+          string="Exportar Asignaciones"
+          type="object"
+          invisible="not id or state not in ('proposal', 'closed')"
+        />
             </button>
         </field>
     </record>

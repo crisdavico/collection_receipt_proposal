@@ -1,0 +1,26 @@
+schema: spec-driven
+changeName: receipt-assignment-xlsx
+artifactStore: openspec
+phase: apply
+artifacts:
+  proposal: done
+  specs: done
+  design: skipped
+  tasks: done
+  applyProgress: done
+  verifyReport: missing
+updatedAt: "2026-09-09T00:00:00Z"
+notes: >-
+  Read-only two-sheet XLSX export of the validated proposal. Revised twice on 2026-09-09.
+  The Detalle worksheet, which showed what was imputed but not what paid for it, first
+  became a flat eighteen-column Recibos grid; on review that was rebuilt as Clientes, the
+  Planilla de Cobranza's own nine-column sectioned layout nested by customer. Each
+  customer's circuits are their receipts, each showing its imputed documents, one
+  Comprobantes block per payment method reshaped to that method's fields, the
+  cash-replacement ledger and a balance that references the subtotals above it; balances
+  chain into customer and sheet totals, and the sheet closes with the unassigned money and
+  a reconciliation against the sheet voucher total. A sixth phase replaced the ad-hoc
+  fills with a measured colour ladder — three duplicate pairs were reading as one
+  colour — pinned by contrast tests. Six phases applied and verified. No
+  collection/ edits, no schema, no security change. Phase 4.8 also fixed a pre-existing
+  tests/common.py fixture call that was erroring six unrelated tests.

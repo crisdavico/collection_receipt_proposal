@@ -6,6 +6,13 @@ from odoo.exceptions import UserError
 from odoo.tools.translate import _
 
 
+def _local_datetime(record, value):
+    """Naive datetime in the reader's timezone; xlsxwriter refuses tz-aware."""
+    if not value:
+        return False
+    return fields.Datetime.context_timestamp(record, value).replace(tzinfo=None)
+
+
 class CollectionVoucher(models.Model):
     _inherit = "collection.voucher"
 
@@ -93,10 +100,60 @@ class CollectionVoucher(models.Model):
             "voucher_id": self.id,
             "voucher_name": self.name or "",
             "method": label["method"],
+            "document_type": self.document_type or "",
             "reference": label["reference"],
             "date": self.voucher_date and str(self.voucher_date) or "",
             "amount": self.amount or 0.0,
             "free_amount": self.proposal_free_amount,
             "partner_id": self.partner_id.id,
             "partner_name": self.partner_id.display_name or "",
+        }
+
+    @api.private
+    def _receipt_assignment_value_row(
+        self, currency, labels, applied, partner_name=None
+    ):
+        """The Asignaciones fields for one voucher, with ``applied`` as its money.
+
+        ``applied`` is whatever the workbook's applied column must show for this
+        row: the receipt value's share inside a receipt, the still-free amount
+        in the unassigned section. Labels arrive already resolved, so no
+        selection dictionary is rebuilt per row -- which is why this does not
+        reuse `_proposal_card_label`, whose concatenated reference is a board
+        card concern anyway.
+        """
+        self.ensure_one()
+        amount = self.amount or 0.0
+        is_check = self.document_type == "check"
+        return {
+            "reference": self.name or "",
+            "document_id": self.document_id or "",
+            "partner_name": (
+                partner_name
+                if partner_name is not None
+                else (self.partner_id.display_name or "")
+            ),
+            "type_label": labels["types"].get(self.document_type)
+            or self.document_type
+            or "",
+            "date": self.voucher_date
+            or (fields.Date.to_date(self.create_date) if self.create_date else False),
+            "number": self.voucher_number or self.check_number or "",
+            "voucher_amount": amount,
+            "applied_amount": applied,
+            "state_label": labels["states"].get(self.state) or self.state or "",
+            "check_bank": (self.check_bank or "") if is_check else "",
+            "check_type_label": (
+                (labels["checks"].get(self.check_type) or "") if is_check else ""
+            ),
+            "check_issue_date": (self.check_issue_date or False) if is_check else False,
+            "check_payment_date": (
+                (self.check_payment_date or False) if is_check else False
+            ),
+            "from_account": self.from_account or "",
+            "to_account": self.to_account or "",
+            "retention_label": labels["retentions"].get(self.retention_kind) or "",
+            "reviewed_by": self.reviewed_by.display_name or "",
+            "reviewed_at": _local_datetime(self, self.reviewed_at),
+            "is_partial": bool(currency.compare_amounts(applied, amount)),
         }

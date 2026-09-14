@@ -6,3 +6,4 @@ from . import collection_receipt_value
 from . import collection_voucher
 from . import collection_allocation
 from . import collection_sheet
+from . import collection_assignment_report

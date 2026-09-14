@@ -2,6 +2,7 @@
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl).
 
 from odoo.exceptions import AccessError, UserError
+from odoo.fields import Command
 from odoo.tests import TransactionCase
 
 from .common import ReceiptProposalCommon
@@ -20,6 +21,7 @@ _POOL_KEYS = {
     "voucher_id",
     "voucher_name",
     "method",
+    "document_type",
     "reference",
     "date",
     "amount",
@@ -142,6 +144,7 @@ class TestReceiptProposalBoard(ReceiptProposalCommon, TransactionCase):
                 "voucher_id",
                 "voucher_name",
                 "method",
+                "document_type",
                 "reference",
                 "date",
                 "amount",
@@ -151,6 +154,43 @@ class TestReceiptProposalBoard(ReceiptProposalCommon, TransactionCase):
                 "free_amount",
             },
         )
+
+    def test_cards_and_pool_name_the_payment_document_type(self):
+        """RED/GREEN: the board reads the type by shape, so it needs the code.
+
+        `method` is the translated label and cannot be keyed on; the glyph
+        picker in the OWL client switches on this raw selection code, and both
+        card shapes -- the assigned row and the synthetic pool card -- draw it.
+        """
+        self.env.company.write(
+            {
+                "allowed_document_type_ids": [
+                    Command.link(self.env.ref("collection.document_type_check").id)
+                ]
+            }
+        )
+        scenario = self._board_scenario(
+            extra_b={
+                "document_type": "check",
+                "check_bank": "Galicia",
+                "check_number": "00012345",
+            }
+        )
+        receipt = self._create_receipt(scenario["allocation_a"], "invoice")
+        self._create_value(receipt, scenario["voucher_a"], 150.0)
+        board = self.Sheet.get_proposal_board(scenario["sheet"].id)
+        column = next(
+            item
+            for item in board["columns"]
+            if item["allocation_id"] == scenario["allocation_a"].id
+        )
+        self.assertEqual(column["cards"][0]["document_type"], "bank_transfer")
+        pool = next(
+            item
+            for item in board["pool"]
+            if item["voucher_id"] == scenario["voucher_b"].id
+        )
+        self.assertEqual(pool["document_type"], "check")
 
     def test_documents_are_listed_in_fifo_order(self):
         """RED/GREEN: the board renders documents oldest due date first."""

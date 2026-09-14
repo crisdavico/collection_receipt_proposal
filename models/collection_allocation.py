@@ -148,6 +148,35 @@ class CollectionAllocation(models.Model):
             return "conciliado"
         return "parcial"
 
+    @api.private
+    def _proposal_kind_status(self, document_kind, figures=None):
+        """`_proposal_status_value`'s ladder restricted to a single circuit.
+
+        The allocation-level status answers "is this customer done?"; a report
+        that lists one row per circuit needs the same verdict per circuit. Debt
+        here is that circuit's own `pending`, not only the invoice one.
+        """
+        self.ensure_one()
+        if self.proposal_closed:
+            return "cerrado"
+        if figures is None:
+            figures = self._proposal_kind_figures(document_kind)
+        currency = self.currency_id
+        applied = self._proposal_compare(currency, figures["applied"], 0.0)
+        available = self._proposal_compare(currency, figures["available"], 0.0)
+        pending = self._proposal_compare(currency, figures["pending"], 0.0)
+        if not applied:
+            return "sin_iniciar"
+        if available < 0:
+            return "cruce"
+        if available > 0 and pending <= 0:
+            return "a_favor"
+        if available <= 0 and pending > 0:
+            return "deuda"
+        if available == 0 and pending == 0:
+            return "conciliado"
+        return "parcial"
+
     @api.model
     @api.private
     def _proposal_compare(self, currency, first, second):

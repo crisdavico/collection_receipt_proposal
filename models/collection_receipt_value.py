@@ -18,6 +18,7 @@ class CollectionReceiptValue(models.Model):
             "voucher_id": voucher.id,
             "voucher_name": voucher.name or "",
             "method": label["method"],
+            "document_type": voucher.document_type or "",
             "reference": label["reference"],
             "date": voucher.voucher_date and str(voucher.voucher_date) or "",
             "amount": self.amount or 0.0,
