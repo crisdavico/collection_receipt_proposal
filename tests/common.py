@@ -6,22 +6,12 @@ from datetime import date
 from odoo.exceptions import AccessError
 from odoo.fields import Command
 
-from odoo.addons.collection.tests.common_connector import (
-    install_bound_test_connector,
-)
 from odoo.addons.collection.tests.test_collection_payment import (
-    create_internal_seller,
     dummy_customer_partner,
     ensure_enabled_seller,
 )
 
-__all__ = [
-    "ReceiptProposalCommon",
-    "create_internal_seller",
-    "dummy_customer_partner",
-    "ensure_enabled_seller",
-    "install_bound_test_connector",
-]
+__all__ = ["ReceiptProposalCommon"]
 
 
 class ReceiptProposalCommon:
@@ -100,9 +90,6 @@ class ReceiptProposalCommon:
                 }
             )
         )
-
-    def _install_test_connector(self):
-        return install_bound_test_connector(self, self._seller())
 
     def _create_sheet(self, *, force_new=False, **extra):
         seller = extra.pop("seller_id", None)

@@ -2,7 +2,11 @@
 <templates xml:space="preserve">
     <t t-name="collection_receipt_proposal.ReceiptProposalAction">
         <div class="o_collection_receipt_proposal" t-on-mousedown="closeMenu">
-            <ControlPanel />
+            <ControlPanel>
+                <t t-set-slot="layout-actions">
+                    <t t-if="hasBoard" t-call="collection_receipt_proposal.FilterBar" />
+                </t>
+            </ControlPanel>
             <div t-if="state.loading and !hasBoard" class="empty-state">
                 <p>Cargando el tablero de conciliación…</p>
             </div>
@@ -11,7 +15,6 @@
                 <p>Revisá que la planilla esté en estado Propuesta.</p>
             </div>
             <t t-else="">
-                <t t-call="collection_receipt_proposal.FilterBar" />
                 <div t-if="state.isolate" class="isolate-bar">
                     <span class="isolate-text">
                         Mostrando solo el comprobante dividido en
@@ -67,6 +70,10 @@
                 t-elif="state.modal.type === 'close'"
                 t-call="collection_receipt_proposal.CloseModal"
               />
+                    <t
+                t-elif="state.modal.type === 'reset'"
+                t-call="collection_receipt_proposal.ResetModal"
+              />
                         </div>
                     </div>
                 </t>
@@ -120,7 +127,7 @@
                 <span class="rp-filter-lab">Tipo de valor</span>
                 <select t-model="state.filters.method">
                     <option value="">Todos los tipos</option>
-                    <t t-foreach="poolMethodOptions" t-as="option" t-key="option.code">
+                    <t t-foreach="methodOptions" t-as="option" t-key="option.code">
                         <option t-att-value="option.code" t-out="option.label" />
                     </t>
                 </select>
@@ -139,6 +146,15 @@
         type="button"
         t-on-click="clearFilters"
       >Limpiar filtros</button>
+            <button
+        t-if="canReset"
+        class="rp-btn danger rp-reset"
+        type="button"
+        t-att-disabled="state.busy"
+        t-on-click="openReset"
+      >
+                Restablecer comprobantes
+            </button>
         </div>
     </t>
 
@@ -162,22 +178,14 @@
                             comprobante(s)
                         </small>
                     </div>
-                    <span
-            t-attf-class="chip {{ pool.length ? 'st-deuda' : 'st-conciliado' }}"
-          >
-                        <span class="dot" />
-                        <t
-              t-out="pool.length ? 'Requiere asignación' : 'Todo asignado'"
+                    <div class="rp-col-meta">
+                        <em>Pendiente de asignar</em>
+                        <b class="num" t-out="fmt(poolTotal)" />
+                        <small
+              t-if="visiblePool.length !== pool.length"
+              t-out="'de ' + fmtShort(sheetPoolTotal)"
             />
-                    </span>
-                </div>
-                <div class="rp-col-meta">
-                    Pendiente de asignar
-                    <b class="num" t-out="fmt(poolTotal)" />
-                    <small
-            t-if="visiblePool.length !== pool.length"
-            t-out="'de ' + fmtShort(sheetPoolTotal)"
-          />
+                    </div>
                 </div>
                 <p class="hint">
                     Arrastrá un valor sobre el circuito FAC o PRE del cliente.
@@ -186,7 +194,8 @@
             <div class="rp-col-body">
                 <t t-foreach="visiblePool" t-as="item" t-key="item.voucher_id">
                     <article
-            class="rp-card c-none"
+            t-attf-class="rp-card {{ typeClass(item.document_type) }}"
+            t-att-title="poolCardTitle(item)"
             t-att-draggable="editable ? 'true' : 'false'"
             t-on-dragstart="(ev) => this.onPoolDragStart(ev, item)"
             t-on-dragend="onDragEnd"
@@ -199,8 +208,7 @@
                     t-value="glyphOf(item.document_type)"
                   />
                                 </t>
-                                <t t-out="item.method" />
-                                <span class="pay-ref" t-out="item.reference" />
+                                <span class="pay-lab" t-out="item.method" />
                             </span>
                             <span class="pay-ref" t-out="item.date" />
                         </div>
@@ -212,9 +220,9 @@
                 t-out="'de ' + fmtShort(item.amount)"
               />
                         </div>
-                        <div class="rp-card-circ">
-                            <span class="ct none">S/C</span>
-                            <span class="pay-ref" t-out="item.partner_name" />
+                        <div class="rp-card-who">
+                            <span class="pay-ref" t-out="item.reference" />
+                            <span class="pay-name" t-out="item.partner_name" />
                         </div>
                     </article>
                 </t>
@@ -313,10 +321,6 @@
                     <t t-out="column.partner_name" />
                     <small t-out="column.partner_vat" />
                 </div>
-                <span t-attf-class="chip st-{{ column.status }}">
-                    <span class="dot" />
-                    <t t-out="statusLabel(column.status)" />
-                </span>
                 <button
           class="icon-btn detail-btn"
           type="button"
@@ -345,7 +349,7 @@
 
     <t t-name="collection_receipt_proposal.CircuitCard">
         <section
-      t-attf-class="rp-circ {{ circuitClass(kind) }} {{ hasCircuit(column, kind) ? '' : 'empty' }} {{ isDetailOpen(column.allocation_id, kind) ? 'expanded' : '' }} {{ zoneClass(column, kind) }}"
+      t-attf-class="rp-circ {{ circuitClass(kind) }} {{ hasCircuit(column, kind) ? '' : 'empty' }} {{ hasValues(column, kind) ? '' : 'novalues' }} {{ isDetailOpen(column.allocation_id, kind) ? 'expanded' : '' }} {{ zoneClass(column, kind) }}"
       t-on-dragover="(ev) => this.onZoneDragOver(ev, column, kind)"
       t-on-dragleave="onZoneDragLeave"
       t-on-drop="(ev) => this.onZoneDrop(ev, column, kind)"
@@ -376,18 +380,41 @@
                     </div>
                     <span class="spacer" />
                     <span
+            t-if="hasValues(column, kind)"
             class="rp-circ-count"
             t-out="circuitCards(column, kind).length + ' valor(es)'"
           />
+                    <span t-else="" class="rp-circ-count dim">
+                        Sin valores — soltá uno acá
+                    </span>
                 </t>
                 <t t-else="">
                     <span class="spacer" />
                     <span class="hint">Sin movimientos — soltá un valor acá</span>
                 </t>
+                <button
+          class="rp-circ-toggle"
+          type="button"
+          t-att-title="isDetailOpen(column.allocation_id, kind) ? 'Ocultar la imputación de este circuito' : 'Imputar esta cobranza a ' + circuits[kind].noun"
+          t-att-aria-expanded="isDetailOpen(column.allocation_id, kind) ? 'true' : 'false'"
+          t-on-click="() => this.toggleDetail(column.allocation_id, kind)"
+        >
+                    <t
+            t-out="isDetailOpen(column.allocation_id, kind) ? 'Ocultar detalle' : 'Ver detalle'"
+          />
+                    <svg
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          ><path d="M3 6l5 5 5-5" /></svg>
+                </button>
             </div>
             <t t-if="hasCircuit(column, kind)">
                 <t t-set="coverage" t-value="circuitCoverage(column, kind)" />
-                <div class="rp-circ-prog">
+                <div t-if="hasValues(column, kind)" class="rp-circ-prog">
                     <div
             class="rp-circ-bar"
             role="progressbar"
@@ -411,7 +438,7 @@
                     <t t-out="fmt(-figures.available)" />
                     más de lo cobrado en este circuito.
                 </div>
-                <div class="rp-circ-rows">
+                <div t-if="hasValues(column, kind)" class="rp-circ-rows">
                     <t
             t-foreach="circuitCards(column, kind)"
             t-as="card"
@@ -419,53 +446,36 @@
           >
                         <t t-call="collection_receipt_proposal.VoucherRow" />
                     </t>
-                    <p
-            t-if="!circuitCards(column, kind).length"
-            class="hint empty-hint"
-          >
-                        Sin valores aplicados — soltá un comprobante acá.
-                    </p>
                 </div>
                 <t t-if="detail" t-call="collection_receipt_proposal.CircuitDetail" />
-                <div class="rp-circ-foot">
-                    <span class="spacer" />
-                    <t t-if="detail">
-                        <button
-              class="rp-btn"
-              type="button"
-              t-att-disabled="imputeLocked(detail) or !detail.rows.length"
-              t-att-title="'Tope: ' + fmt(detail.budget) + ' · Mover un valor de este circuito vuelve a distribuir todo desde la deuda más antigua.'"
-              t-on-click="() => this.autoDistribute(detail)"
-            >
-                            Distribuir por antigüedad
-                        </button>
-                        <button
-              class="rp-btn primary"
-              type="button"
-              t-att-disabled="!imputeCanConfirm(detail)"
-              t-on-click="() => this.confirmImpute(detail)"
-            >
-                            Confirmar imputación
-                        </button>
-                    </t>
-                    <button
-            class="rp-circ-toggle"
-            type="button"
-            t-att-title="isDetailOpen(column.allocation_id, kind) ? 'Ocultar la imputación de este circuito' : 'Imputar esta cobranza a ' + circuits[kind].noun"
-            t-att-aria-expanded="isDetailOpen(column.allocation_id, kind) ? 'true' : 'false'"
-            t-on-click="() => this.toggleDetail(column.allocation_id, kind)"
-          >
-                        <t
-              t-out="isDetailOpen(column.allocation_id, kind) ? 'Ocultar detalle' : 'Ver detalle'"
+                <div
+          class="rp-circ-foot"
+          t-if="isDetailOpen(column.allocation_id, kind)"
+        >
+                    <span class="rp-circ-budget">
+                        <em>Sin imputar</em>
+                        <b
+              t-attf-class="num {{ imputeAvailable(detail) ? 'warn' : 'dim' }}"
+              t-out="fmt(imputeAvailable(detail))"
             />
-                        <svg
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            ><path d="M3 6l5 5 5-5" /></svg>
+                    </span>
+                    <span class="spacer" />
+                    <button
+            class="rp-btn"
+            type="button"
+            t-att-disabled="imputeLocked(detail) or !detail.rows.length"
+            t-att-title="'Tope: ' + fmt(detail.budget) + ' · Mover un valor de este circuito vuelve a distribuir todo desde la deuda más antigua.'"
+            t-on-click="() => this.autoDistribute(detail)"
+          >
+                        Distribuir por antigüedad
+                    </button>
+                    <button
+            class="rp-btn primary"
+            type="button"
+            t-att-disabled="!imputeCanConfirm(detail)"
+            t-on-click="() => this.confirmImpute(detail)"
+          >
+                        Confirmar imputación
                     </button>
                 </div>
             </t>
@@ -556,7 +566,7 @@
       t-attf-class="rp-vrow-wrap {{ isSplitOpen(card.value_id) ? 'open-splits' : '' }}"
     >
             <div
-        t-attf-class="rp-vrow {{ cardClass(card) }} {{ isDimmedCard(card) ? 'dimmed' : '' }}"
+        t-attf-class="rp-vrow {{ typeClass(card.document_type) }} {{ isDimmedCard(card) ? 'dimmed' : '' }}"
         t-att-draggable="editable and !column.closed ? 'true' : 'false'"
         t-on-dragstart="(ev) => this.onCardDragStart(ev, card)"
         t-on-dragend="onDragEnd"
@@ -618,9 +628,12 @@
         </div>
     </t>
 
-    <!-- El tipo de comprobante se lee por FORMA, no por color: el color de una
-         tarjeta ya significa circuito (FAC / PRE). El glifo es decorativo (la
-         etiqueta del metodo va escrita al lado), de ahi el aria-hidden. -->
+    <!-- El tipo de comprobante se lee por FORMA primero: el glifo es el canal
+         que sobrevive a un daltonismo y a una impresion en gris, y el matiz de
+         la tarjeta entra encima como refuerzo. La ficha no elige color: hereda
+         los tokens de tipo de la tarjeta o de la fila que la contiene, que ya
+         es de este tipo. El glifo es decorativo (la etiqueta del metodo va
+         escrita al lado), de ahi el aria-hidden. -->
     <t t-name="collection_receipt_proposal.TypeGlyph">
         <span class="pay-glyph" aria-hidden="true">
             <svg
@@ -739,47 +752,49 @@
             <t t-foreach="preview.preview" t-as="plan" t-key="plan_index">
                 <div
           t-if="plan.no_documents"
-          t-attf-class="ai-line {{ circuitClass(plan.document_kind) }}"
+          t-attf-class="ai-line {{ previewCircuits ? circuitClass(plan.document_kind) : '' }}"
         >
                     <span
+            t-if="previewCircuits"
             t-attf-class="ct {{ circuitClass(plan.document_kind) }}"
             t-out="circuits[plan.document_kind].tag"
           />
                     <span>
                         <b t-out="plan.partner_name" />
-                        — sin <t t-out="circuits[plan.document_kind].noun" />:
+                        — sin <t t-out="previewNoun(plan, previewCircuits)" />:
                         <t t-out="fmt(plan.budget)" /> queda a favor.
                     </span>
                 </div>
                 <div
           t-elif="!plan.changes.length"
-          t-attf-class="ai-line {{ circuitClass(plan.document_kind) }}"
+          t-attf-class="ai-line {{ previewCircuits ? circuitClass(plan.document_kind) : '' }}"
         >
                     <span
+            t-if="previewCircuits"
             t-attf-class="ct {{ circuitClass(plan.document_kind) }}"
             t-out="circuits[plan.document_kind].tag"
           />
                     <span>
                         <b t-out="plan.partner_name" />
-                        — <t t-out="circuits[plan.document_kind].noun" /> sin cambios.
+                        — <t
+              t-out="previewCircuits ? circuits[plan.document_kind].noun + ' sin cambios.' : 'sin cambios.'"
+            />
                     </span>
                 </div>
                 <details
           t-else=""
-          t-attf-class="ai-more {{ circuitClass(plan.document_kind) }}"
+          t-attf-class="ai-more {{ previewCircuits ? circuitClass(plan.document_kind) : '' }}"
         >
                     <summary>
                         <span
+              t-if="previewCircuits"
               t-attf-class="ct {{ circuitClass(plan.document_kind) }}"
               t-out="circuits[plan.document_kind].tag"
             />
                         <span>
                             <b t-out="plan.partner_name" />
                             — se reimputan
-                            <b>
-                                <t t-out="plan.changes.length" />
-                                <t t-out="circuits[plan.document_kind].noun" />
-                            </b>
+                            <b t-out="previewCountLabel(plan, previewCircuits)" />
                         </span>
                         <em
               t-out="plan.surplus > 0 ? 'sobra ' + fmtShort(plan.surplus) : 'sin sobrante'"
@@ -790,7 +805,9 @@
                             <table>
                                 <thead>
                                     <tr>
-                                        <th t-out="circuits[plan.document_kind].doc" />
+                                        <th
+                      t-out="previewCircuits ? circuits[plan.document_kind].doc : 'Documento'"
+                    />
                                         <th class="n">Imputado</th>
                                     </tr>
                                 </thead>
@@ -857,6 +874,33 @@
                     </span>
                 </div>
 
+                <div t-if="transferFigureGroups.length" class="tfigs">
+                    <span
+            t-foreach="transferFigureGroups"
+            t-as="group"
+            t-key="group.key"
+            class="grp"
+          >
+                        <em class="lab" t-out="group.label" />
+                        <span class="f">
+                            <em>Deuda</em>
+                            <b class="num" t-out="fmt(group.figures.total)" />
+                        </span>
+                        <span class="f">
+                            <em>Cobrado</em>
+                            <b class="num" t-out="fmt(group.figures.collected)" />
+                        </span>
+                        <span t-if="group.gap > 0" class="f">
+                            <em>Falta</em>
+                            <b class="num neg" t-out="fmt(group.gap)" />
+                        </span>
+                        <span t-elif="group.gap &lt; 0" class="f">
+                            <em>A favor</em>
+                            <b class="num fav" t-out="fmt(-group.gap)" />
+                        </span>
+                    </span>
+                </div>
+
                 <div t-if="transferTwin" class="radios">
                     <label t-attf-class="{{ state.modal.unify ? 'sel' : '' }}">
                         <input
@@ -919,6 +963,13 @@
             >
                             25%
                         </button>
+                        <button
+              t-if="transferGapQuick"
+              class="fill"
+              type="button"
+              t-on-click="setTransferGap"
+              t-out="transferGapQuickLabel"
+            />
                     </div>
                 </div>
 
@@ -931,6 +982,7 @@
                     <span t-out="state.modal.error" />
                 </div>
 
+                <t t-set="previewCircuits" t-value="false" />
                 <t t-set="preview" t-value="state.modal" />
                 <t t-call="collection_receipt_proposal.PreviewPanel" />
             </div>
@@ -1000,6 +1052,7 @@
                         <span class="rp-mark">✓</span>
                     </button>
                 </div>
+                <t t-set="previewCircuits" t-value="true" />
                 <t t-set="preview" t-value="state.modal" />
                 <t t-call="collection_receipt_proposal.PreviewPanel" />
             </div>
@@ -1064,6 +1117,7 @@
                         registrada en el historial con usuario, fecha y valores anteriores.
                     </span>
                 </div>
+                <t t-set="previewCircuits" t-value="true" />
                 <t t-set="preview" t-value="state.modal" />
                 <t t-call="collection_receipt_proposal.PreviewPanel" />
             </div>
@@ -1146,6 +1200,61 @@
           t-on-click="confirmClose"
         >
                     Cerrar cliente
+                </button>
+            </div>
+        </div>
+    </t>
+
+    <t t-name="collection_receipt_proposal.ResetModal">
+        <div class="rp-modal" role="dialog" aria-modal="true">
+            <div class="rp-modal-head">
+                <h2>Restablecer comprobantes</h2>
+                <p>
+                    Todos los valores asignados vuelven a Sin asignar, ordenados por
+                    tipo de comprobante. Las retenciones se quedan donde están.
+                </p>
+            </div>
+            <div class="rp-modal-body">
+                <dl class="kv">
+                    <dt>Tarjetas que se devuelven</dt>
+                    <dd t-out="resetSummary.cards" />
+                    <dt>Clientes alcanzados</dt>
+                    <dd t-out="resetSummary.customers" />
+                    <dt>Importe que vuelve al pool</dt>
+                    <dd t-out="fmt(resetSummary.amount)" />
+                </dl>
+                <div t-if="resetBlockers.length" class="note warn">
+                    <b>!</b>
+                    <div>
+                        <b>Hay clientes cerrados con valores asignados.</b>
+                        <span>
+                            Reabrilos antes de restablecer:
+                            <t t-out="resetBlockers.join(', ')" />
+                        </span>
+                    </div>
+                </div>
+                <div t-else="" class="note warn">
+                    <b>!</b>
+                    <span>
+                        Se pierde toda la distribución del tablero: cada circuito queda
+                        en cero y se borra la imputación de todos los documentos. La
+                        acción queda registrada en el historial y se puede rehacer
+                        asignando de nuevo.
+                    </span>
+                </div>
+            </div>
+            <div class="rp-modal-foot">
+                <span class="spacer" />
+                <button class="rp-btn" type="button" t-on-click="closeModal">
+                    Cancelar
+                </button>
+                <button
+          class="rp-btn danger"
+          type="button"
+          t-att-disabled="state.busy or resetBlockers.length"
+          t-on-click="confirmReset"
+        >
+                    Devolver todo a Sin asignar
                 </button>
             </div>
         </div>
@@ -1286,10 +1395,6 @@
                 </t>
             </div>
             <div class="rp-modal-foot">
-                <span t-attf-class="chip st-{{ drawerColumn.status }}">
-                    <span class="dot" />
-                    <t t-out="statusLabel(drawerColumn.status)" />
-                </span>
                 <span class="spacer" />
                 <button
           t-if="drawerColumn.closed"

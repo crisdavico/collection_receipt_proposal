@@ -56,9 +56,12 @@ class TestReceiptProposalSplit(ReceiptProposalCommon, TransactionCase):
         """RED/GREEN: UNIQUE(receipt, voucher) still refuses a second row."""
         receipt = self._create_receipt(self.allocation_a, "invoice")
         first = self._create_value(receipt, self.voucher, 40.0)
-        with mute_logger("odoo.sql_db"), self.assertRaises(IntegrityError):
-            with self.env.cr.savepoint():
-                self._create_value(receipt, self.voucher, 10.0)
+        with (
+            mute_logger("odoo.sql_db"),
+            self.assertRaises(IntegrityError),
+            self.env.cr.savepoint(),
+        ):
+            self._create_value(receipt, self.voucher, 10.0)
         self.assertEqual(first.amount, 40.0)
         self.assertEqual(
             len(
@@ -77,12 +80,18 @@ class TestReceiptProposalSplit(ReceiptProposalCommon, TransactionCase):
         invoice = self._create_receipt(self.allocation_a, "invoice")
         quotation = self._create_receipt(self.allocation_a, "quotation")
         kept = self._create_value(invoice, self.voucher, 40.0)
-        with mute_logger("odoo.sql_db"), self.assertRaises(IntegrityError):
-            with self.env.cr.savepoint():
-                self._create_value(quotation, self.voucher, 0.0)
-        with mute_logger("odoo.sql_db"), self.assertRaises(IntegrityError):
-            with self.env.cr.savepoint():
-                self._create_value(quotation, self.voucher, -5.0)
+        with (
+            mute_logger("odoo.sql_db"),
+            self.assertRaises(IntegrityError),
+            self.env.cr.savepoint(),
+        ):
+            self._create_value(quotation, self.voucher, 0.0)
+        with (
+            mute_logger("odoo.sql_db"),
+            self.assertRaises(IntegrityError),
+            self.env.cr.savepoint(),
+        ):
+            self._create_value(quotation, self.voucher, -5.0)
         self.assertEqual(kept.amount, 40.0)
         self.assertFalse(quotation.value_ids)
 

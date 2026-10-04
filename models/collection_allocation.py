@@ -9,7 +9,6 @@ from odoo.tools.translate import _
 
 DOCUMENT_KINDS = ("invoice", "quotation")
 KIND_LABELS = {"invoice": "Invoices", "quotation": "Quotations"}
-_PROPOSAL_SHEET_STATE = "proposal"
 
 
 class CollectionAllocation(models.Model):
@@ -103,13 +102,20 @@ class CollectionAllocation(models.Model):
             allocation.proposal_status = allocation._proposal_status_value(figures)
 
     @api.private
-    def _proposal_kind_figures(self, document_kind):
-        """Collected / applied / available / total / pending for one circuit."""
+    def _proposal_kind_figures(self, document_kind, lines=None):
+        """Collected / applied / available / total / pending for one circuit.
+
+        `lines` lets a caller that already sorted this circuit's documents hand
+        them over; the board payload needs both the figures and the rows, and
+        `_proposal_kind_lines` filters and sorts on every call.
+        """
         self.ensure_one()
         collected = self._proposal_budget(document_kind)
         applied = 0.0
         total = 0.0
-        for line in self._proposal_kind_lines(document_kind):
+        if lines is None:
+            lines = self._proposal_kind_lines(document_kind)
+        for line in lines:
             applied += line.amount_applied or 0.0
             total += line.invoice_balance or 0.0
         return {
@@ -211,10 +217,6 @@ class CollectionAllocation(models.Model):
         )[:1]
 
     @api.private
-    def _proposal_receipt_get_or_create(self, document_kind):
-        return self._receipt_get_or_create(document_kind)
-
-    @api.private
     def _proposal_budget(self, document_kind):
         """The circuit's collected money: its receipt `total_values`."""
         self.ensure_one()
@@ -292,8 +294,13 @@ class CollectionAllocation(models.Model):
         if not preview["changes"]:
             return preview
         Line = self.env["collection.allocation.line"]
+        # Group by the value written: lines landing on the same amount go out
+        # as one UPDATE instead of one per document.
+        by_amount = {}
         for change in preview["changes"]:
-            Line.browse(change["line_id"]).amount_applied = change["to"]
+            by_amount.setdefault(change["to"], []).append(change["line_id"])
+        for amount, line_ids in by_amount.items():
+            Line.browse(line_ids).amount_applied = amount
         self._proposal_log_recompute(document_kind, preview)
         return preview
 
@@ -336,49 +343,29 @@ class CollectionAllocation(models.Model):
     # ------------------------------------------------------------------
 
     @api.private
-    def _proposal_difference_labels(self):
-        """Human labels for every circuit difference blocking a clean close."""
+    def _proposal_has_differences(self):
+        """Whether any circuit still shows money unapplied, overdrawn or owed.
+
+        Closing with a difference is allowed, but only with a note, and that
+        is the one question asked of this: the caller never named a figure.
+        """
         self.ensure_one()
         currency = self.currency_id
-        differences = []
         for kind in DOCUMENT_KINDS:
             figures = self._proposal_kind_figures(kind)
-            available = self._proposal_compare(currency, figures["available"], 0.0)
-            pending = self._proposal_compare(currency, figures["pending"], 0.0)
-            if available > 0:
-                differences.append(("unapplied", kind, figures["available"]))
-            elif available < 0:
-                differences.append(("overdraft", kind, -figures["available"]))
-            if pending > 0:
-                differences.append(("pending", kind, figures["pending"]))
-        return differences
-
-    @api.private
-    def _proposal_ensure_editable(self):
-        self.ensure_one()
-        if self.sheet_id.state != _PROPOSAL_SHEET_STATE:
-            raise UserError(
-                _(
-                    "The receipt proposal board is only available on collection "
-                    "sheets in proposal."
-                )
-            )
-        if self.proposal_closed:
-            raise UserError(_("This customer is closed on the board. Reopen it first."))
+            if self._proposal_compare(currency, figures["available"], 0.0) != 0:
+                return True
+            if self._proposal_compare(currency, figures["pending"], 0.0) > 0:
+                return True
+        return False
 
     def action_proposal_close(self, note=None):
         self.ensure_one()
-        if self.sheet_id.state != _PROPOSAL_SHEET_STATE:
-            raise UserError(
-                _(
-                    "The receipt proposal board is only available on collection "
-                    "sheets in proposal."
-                )
-            )
+        self.sheet_id._proposal_ensure_board_state()
         if self.proposal_closed:
             raise UserError(_("This customer is already closed on the board."))
         note = (note or "").strip()
-        if self._proposal_difference_labels() and not note:
+        if self._proposal_has_differences() and not note:
             raise UserError(_("Closing a customer with differences requires a note."))
         self.write(
             {
@@ -401,13 +388,7 @@ class CollectionAllocation(models.Model):
 
     def action_proposal_reopen(self):
         self.ensure_one()
-        if self.sheet_id.state != _PROPOSAL_SHEET_STATE:
-            raise UserError(
-                _(
-                    "The receipt proposal board is only available on collection "
-                    "sheets in proposal."
-                )
-            )
+        self.sheet_id._proposal_ensure_board_state()
         if not self.proposal_closed:
             raise UserError(_("This customer is not closed on the board."))
         self.write(
@@ -437,6 +418,9 @@ class CollectionAllocation(models.Model):
         """One board column: figures, cards and documents for this customer."""
         self.ensure_one()
         cards = []
+        lines_by_kind = {
+            kind: self._proposal_kind_lines(kind) for kind in DOCUMENT_KINDS
+        }
         for kind in DOCUMENT_KINDS:
             receipt = self._proposal_receipt(kind)
             for value in receipt.value_ids:
@@ -454,7 +438,8 @@ class CollectionAllocation(models.Model):
             or "",
             "status": self.proposal_status,
             "circuits": {
-                kind: self._proposal_kind_figures(kind) for kind in DOCUMENT_KINDS
+                kind: self._proposal_kind_figures(kind, lines=lines_by_kind[kind])
+                for kind in DOCUMENT_KINDS
             },
             "cards": cards,
             "documents": {
@@ -468,7 +453,7 @@ class CollectionAllocation(models.Model):
                         "balance": line.invoice_balance or 0.0,
                         "applied": line.amount_applied or 0.0,
                     }
-                    for line in self._proposal_kind_lines(kind)
+                    for line in lines_by_kind[kind]
                 ]
                 for kind in DOCUMENT_KINDS
             },

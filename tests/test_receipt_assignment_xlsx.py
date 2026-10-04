@@ -4,6 +4,7 @@
 import zipfile
 from datetime import date, datetime
 from io import BytesIO
+from itertools import pairwise
 
 from openpyxl import load_workbook
 
@@ -28,7 +29,6 @@ SUMMARY_TITLES = [
     "Deuda Total",
     "Pendiente",
     "Estado Circuito",
-    "Estado Cliente",
     "Nota de Cierre",
 ]
 DOCUMENT_TITLES = [
@@ -135,7 +135,6 @@ def _summary_row(kind, kind_label, collected, applied, debt, pending, status):
         "debt_total": debt,
         "pending": pending,
         "kind_status_label": status,
-        "customer_status_label": "Parcial",
         "closed": False,
         "note": "",
     }
@@ -174,7 +173,7 @@ def _value_row(reference, voucher_amount, applied, **extra):
         "to_account": "0002",
         "retention_label": "",
         "reviewed_by": "Revisor Uno",
-        "reviewed_at": datetime(2026, 9, 3, 10, 30),
+        "reviewed_at": datetime(2026, 9, 3, 10, 30),  # noqa: DTZ001
         "is_partial": voucher_amount != applied,
     }
     row.update(extra)
@@ -253,7 +252,7 @@ def _fixture_payload():
                 "direction": "replace",
                 "direction_label": "Reemplazo",
                 "created_by": "Operador Uno",
-                "created_at": datetime(2026, 9, 4, 9, 15),
+                "created_at": datetime(2026, 9, 4, 9, 15),  # noqa: DTZ001
             }
         ],
         "subtotal_cash_amount": 25.0,
@@ -261,7 +260,6 @@ def _fixture_payload():
     customer = {
         "code": "C001",
         "name": "ACME SA",
-        "status_label": "Parcial",
         "closed": False,
         "note": "",
         "circuits": [circuit],
@@ -365,7 +363,6 @@ class TestReceiptAssignmentXlsxBuilder(TransactionCase):
                 200.0,
                 50.0,
                 "Deuda pendiente",
-                "Parcial",
                 "",
             ],
         )
@@ -394,11 +391,11 @@ class TestReceiptAssignmentXlsxBuilder(TransactionCase):
     # Clientes: the three heading levels
     # ------------------------------------------------------------------
 
-    def test_customer_band_names_the_customer_and_its_status(self):
+    def test_customer_band_names_the_customer_without_a_status(self):
         worksheet = self._load()["Clientes"]
         self.assertEqual(
             worksheet.cell(CUSTOMER_BAND_ROW, 1).value,
-            "Cliente — C001  ACME SA  [Parcial]",
+            "Cliente — C001  ACME SA",
         )
 
     def test_circuit_band_names_the_receipt_and_its_state(self):
@@ -443,7 +440,7 @@ class TestReceiptAssignmentXlsxBuilder(TransactionCase):
         ]
         levels = [_luminance(colour) for colour in ladder]
         self.assertEqual(levels, sorted(levels), ladder)
-        for darker, lighter in zip(ladder, ladder[1:], strict=False):
+        for darker, lighter in pairwise(ladder):
             self.assertGreaterEqual(_contrast(darker, lighter), 1.25, (darker, lighter))
         for fill, text in (
             (builder.LVL1_FILL, "#FFFFFF"),
@@ -793,7 +790,10 @@ class TestReceiptAssignmentXlsxBuilder(TransactionCase):
             "#,##0.00",
         )
         reviewed = worksheet.cell(CASH_FIRST_ROW, 7)
-        self.assertEqual(reviewed.value, datetime(2026, 9, 4, 9, 15))
+        self.assertEqual(
+            reviewed.value,
+            datetime(2026, 9, 4, 9, 15),  # noqa: DTZ001
+        )
         self.assertEqual(reviewed.number_format, "DD/MM/YYYY HH:MM")
 
     def test_clientes_has_no_autofilter_but_resumen_does(self):
@@ -826,8 +826,8 @@ class TestReceiptAssignmentXlsxBuilder(TransactionCase):
     def test_membrete_carries_the_sheet_context(self):
         worksheet = self._load()["Resumen"]
         self.assertEqual(worksheet["A1"].value, "ACME")
-        self.assertEqual(worksheet["F1"].value, "Asignaciones de Cobranza")
-        self.assertEqual(worksheet["F2"].value, "CS/2026/0001")
+        self.assertEqual(worksheet["E1"].value, "Asignaciones de Cobranza")
+        self.assertEqual(worksheet["E2"].value, "CS/2026/0001")
         self.assertEqual(worksheet["A7"].value, "Planilla")
         self.assertEqual(worksheet["C7"].value, "CS/2026/0001")
         self.assertEqual(worksheet["E7"].value, "Estado")
@@ -840,7 +840,7 @@ class TestReceiptAssignmentXlsxBuilder(TransactionCase):
         self.assertEqual(worksheet["G8"].value, "01/09/2026 - 08/09/2026")
         self.assertEqual(worksheet["I8"].value, "Clientes")
         self.assertEqual(worksheet["J8"].value, 1)
-        # Clientes splits its membrete over nine columns, not eleven.
+        # Clientes splits its membrete over nine columns, not ten.
         customers = self._load()["Clientes"]
         self.assertEqual(customers["A1"].value, "ACME")
         self.assertEqual(customers["E1"].value, "Asignaciones - Clientes")

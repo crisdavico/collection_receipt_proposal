@@ -9,7 +9,15 @@ from .common import ReceiptProposalCommon
 
 
 class TestReceiptProposalOrder(ReceiptProposalCommon, TransactionCase):
-    """RED/GREEN: `_proposal_fifo_key` never drifts from `_compute_line_ids`."""
+    """RED/GREEN: `_proposal_fifo_key` orders by `(due_date, invoice_number)`.
+
+    This used to assert byte-identity with `collection.receipt.line_ids`. That
+    coupling is gone: `_compute_line_ids` is a bare `filtered()` over
+    `allocation_id.line_ids` and imposes no order of its own, and the
+    `document_numbers` string whose rendering was the reason to mirror it does
+    not exist on `collection.receipt`. FIFO is this addon's own rule now, so
+    the tests pin the rule instead of the other model's recordset order.
+    """
 
     def _allocation_with_mixed_lines(self):
         sheet = self._create_sheet()
@@ -56,27 +64,16 @@ class TestReceiptProposalOrder(ReceiptProposalCommon, TransactionCase):
         self._confirm(sheet)
         return allocation, voucher, sheet
 
-    def test_fifo_key_matches_receipt_line_ids_order(self):
-        """RED/GREEN: FIFO order equals the receipt's rendered `line_ids` order."""
+    def test_fifo_orders_by_due_date_then_invoice_number(self):
+        """RED/GREEN: oldest due date first, `invoice_number` breaking ties."""
         allocation, voucher, _sheet = self._allocation_with_mixed_lines()
         receipt = self._create_receipt(allocation, "invoice")
         self._create_value(receipt, voucher, 250.0)
         self.assertEqual(
-            allocation._proposal_kind_lines("invoice").ids,
-            receipt.line_ids.ids,
-            "FIFO order must be byte-identical to collection.receipt line_ids",
+            allocation._proposal_kind_lines("invoice").mapped("external_invoice_id"),
+            ["ORD-3", "ORD-5", "ORD-2", "ORD-1", "ORD-4"],
+            "FIFO must read (due_date or date.max, invoice_number or '')",
         )
-
-    def test_document_numbers_string_follows_the_same_order(self):
-        """RED/GREEN: the stored summary names documents in FIFO order."""
-        allocation, voucher, _sheet = self._allocation_with_mixed_lines()
-        receipt = self._create_receipt(allocation, "invoice")
-        self._create_value(receipt, voucher, 250.0)
-        expected = ", ".join(
-            line.invoice_number or line.external_invoice_id
-            for line in allocation._proposal_kind_lines("invoice")
-        )
-        self.assertEqual(receipt.document_numbers, expected)
 
     def test_undated_line_sorts_after_every_dated_line(self):
         """RED/GREEN: `due_date or date.max` puts undated documents last."""
@@ -104,8 +101,8 @@ class TestReceiptProposalOrder(ReceiptProposalCommon, TransactionCase):
         )
         self.assertEqual(key(blank), (date(2026, 1, 15), ""))
 
-    def test_same_due_date_empty_number_matches_compute_line_ids(self):
-        """RED/GREEN: False invoice_number is '' and matches `_compute_line_ids`."""
+    def test_same_due_date_sorts_a_false_invoice_number_first(self):
+        """RED/GREEN: a False `invoice_number` is `''`, so it sorts first."""
         sheet = self._create_sheet()
         partner = self._partner("PROP-EMPTY")
         voucher = self._create_voucher(partner, sheet, amount=100.0)
@@ -140,5 +137,4 @@ class TestReceiptProposalOrder(ReceiptProposalCommon, TransactionCase):
         self.assertEqual(key(blank), (due, ""))
         self.assertEqual(key(named), (due, "A"))
         fifo_ids = allocation._proposal_kind_lines("invoice").ids
-        self.assertEqual(fifo_ids, receipt.line_ids.ids)
         self.assertEqual(fifo_ids, [blank.id, named.id])

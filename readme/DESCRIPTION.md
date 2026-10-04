@@ -52,7 +52,7 @@ The proposal can leave Odoo as a spreadsheet: the header button **Exportar
 Asignaciones** (visible on a sheet in `proposal` and on the `closed` sheet afterwards)
 downloads a two-sheet workbook built in the same visual language as the Planilla de
 Cobranza. **Resumen** carries one row per `(customer, circuit)` — collected, applied, on
-account, total debt, pending, plus the per-circuit and per-customer status.
+account, total debt, pending, plus the per-circuit status.
 
 **Clientes** stacks one section per customer, and inside it one section per circuit —
 which is to say, per `collection.receipt`. Each circuit shows the documents it imputed

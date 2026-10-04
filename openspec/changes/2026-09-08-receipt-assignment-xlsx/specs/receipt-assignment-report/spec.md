@@ -85,14 +85,14 @@ closed on the board, then `sin_iniciar`, `cruce`, `a_favor`, `deuda`, `conciliad
 
 - GIVEN a customer closed on the board with a difference and a note
 - WHEN the payload is built
-- THEN the row's circuit and customer status MUST both read "Cerrado"
+- THEN the row's circuit status MUST read "Cerrado"
 - AND the row MUST carry the closing note
 
 ### Requirement: Customers nest their circuits
 
 `customer_blocks` MUST carry one block per allocation that has at least one circuit to
 simulate, ordered by `_collection_report_code_sort`, each with `code`, `name`,
-`status_label`, `closed`, `note` and a `circuits` list in `invoice` then `quotation`
+`closed`, `note` and a `circuits` list in `invoice` then `quotation`
 order. Reading `(customer, circuit)` pairs off `customer_blocks` MUST yield a subsequence
 of the same pairs read off `summary_rows`, so the two worksheets can never disagree on
 order.

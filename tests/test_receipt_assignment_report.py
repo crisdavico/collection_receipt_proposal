@@ -6,10 +6,6 @@ from datetime import date
 from odoo.exceptions import UserError
 from odoo.tests import TransactionCase
 
-from odoo.addons.collection_receipt_proposal.models.collection_assignment_report import (
-    _status_title,
-)
-
 from .common import ReceiptProposalCommon
 
 MONEY_KEYS = ("collected", "applied", "on_account", "debt_total", "pending")
@@ -77,13 +73,6 @@ class TestReceiptAssignmentReport(ReceiptProposalCommon, TransactionCase):
     def _value_rows(self, circuit):
         """Every voucher row of a circuit, across its per-type blocks."""
         return [row for block in circuit["voucher_blocks"] for row in block["rows"]]
-
-    def _value_row(self, circuit, reference):
-        rows = [
-            row for row in self._value_rows(circuit) if row["reference"] == reference
-        ]
-        self.assertEqual(len(rows), 1, f"one row expected for {reference}")
-        return rows[0]
 
     def _own_sheet(self, label):
         """A fresh unconfirmed sheet and customer for this test alone.
@@ -226,9 +215,6 @@ class TestReceiptAssignmentReport(ReceiptProposalCommon, TransactionCase):
         self.assertEqual(
             [circuit["kind"] for circuit in customer["circuits"]],
             ["invoice", "quotation"],
-        )
-        self.assertEqual(
-            customer["status_label"], _status_title(self.allocation_a.proposal_status)
         )
 
     # ------------------------------------------------------------------
@@ -587,7 +573,6 @@ class TestReceiptAssignmentReport(ReceiptProposalCommon, TransactionCase):
         self.assertEqual(self.allocation_a._proposal_kind_status("invoice"), "cerrado")
         row = self._summary()[(self.name_a, "invoice")]
         self.assertEqual(row["kind_status_label"], "Cerrado")
-        self.assertEqual(row["customer_status_label"], "Cerrado")
         self.assertTrue(row["closed"])
         self.assertEqual(row["note"], "diferencia aceptada")
 
@@ -628,6 +613,11 @@ class TestReceiptAssignmentReport(ReceiptProposalCommon, TransactionCase):
         other = self.env["res.currency"].search(
             [("id", "!=", self.sheet.company_id.currency_id.id)], limit=1
         )
+        # Every currency in base data ships `active=False` and `search` honours
+        # `active_test`: with no second active currency `other.id` is False, the
+        # allocation silently takes the default, and this fails as "UserError
+        # not raised" instead of saying what is actually missing.
+        self.assertTrue(other, "need a second active currency for the mismatch")
         self._create_allocation(
             self.sheet, self._partner("PROP-C"), currency_id=other.id
         )

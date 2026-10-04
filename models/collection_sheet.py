@@ -11,6 +11,7 @@ from .collection_allocation import DOCUMENT_KINDS, KIND_LABELS
 
 _PROPOSAL_STATE = "proposal"
 _SELLER_DEPOSIT = "seller_deposit"
+_RETENTION = "retention_certificate"
 _EVENT_LIMIT = 200
 
 
@@ -24,13 +25,7 @@ class CollectionSheet(models.Model):
     def action_open_receipt_proposal(self):
         self.ensure_one()
         self._ensure_saved_sheet()
-        if self.state != _PROPOSAL_STATE:
-            raise UserError(
-                _(
-                    "The receipt proposal board is only available on collection "
-                    "sheets in proposal."
-                )
-            )
+        self._proposal_ensure_board_state()
         action = self.env["ir.actions.actions"]._for_xml_id(
             "collection_receipt_proposal.action_collection_receipt_proposal"
         )
@@ -49,19 +44,37 @@ class CollectionSheet(models.Model):
         sheet = self.browse(sheet_id)
         if not sheet.exists():
             raise UserError(self._proposal_sheet_error())
-        if sheet.state != _PROPOSAL_STATE:
-            raise UserError(
-                _(
-                    "The receipt proposal board is only available on collection "
-                    "sheets in proposal."
-                )
-            )
+        # `exists()` is a raw SELECT: it answers "is there a row?", never "may
+        # this user see it?". Every other gate below reads a field, and a field
+        # already in the transaction's cache is served without touching the DB
+        # -- so on a warm cache an other-company sheet walked straight past the
+        # `ir.rule`. Ask for read access explicitly instead of relying on a
+        # query happening to fire.
+        sheet.check_access("read")
+        sheet._proposal_ensure_board_state()
         return sheet
 
     @api.model
     @api.private
     def _proposal_sheet_error(self):
         return _("A valid collection sheet is required for the receipt proposal board.")
+
+    @api.private
+    def _proposal_ensure_board_state(self):
+        """The board exists only between Confirm and Close.
+
+        Every entry point asks the same question, so the message lives here
+        once: the sheet form button, the RPC re-validation, and the two
+        per-customer actions on `collection.allocation`.
+        """
+        self.ensure_one()
+        if self.state != _PROPOSAL_STATE:
+            raise UserError(
+                _(
+                    "The receipt proposal board is only available on collection "
+                    "sheets in proposal."
+                )
+            )
 
     @api.private
     def _proposal_allocation(self, allocation_id, required=True):
@@ -118,16 +131,28 @@ class CollectionSheet(models.Model):
         return self.company_id.currency_id or self.env.company.currency_id
 
     @api.private
-    def _proposal_amount(self, amount, maximum):
-        self.ensure_one()
-        currency = self._proposal_currency()
+    @api.model
+    @api.private
+    def _proposal_parse_amount(self, amount, currency):
+        """A finite float rounded to the currency, or `A valid amount`.
+
+        Shared by the transfer gate and the imputation grid: they differ in
+        what they accept afterwards (zero is a legal imputation, never a legal
+        transfer), never in how the number is read.
+        """
         try:
             value = float(amount)
         except (TypeError, ValueError) as error:
             raise UserError(_("A valid amount is required.")) from error
         if math.isnan(value) or math.isinf(value):
             raise UserError(_("A valid amount is required."))
-        value = currency.round(value)
+        return currency.round(value)
+
+    @api.private
+    def _proposal_amount(self, amount, maximum):
+        self.ensure_one()
+        currency = self._proposal_currency()
+        value = self._proposal_parse_amount(amount, currency)
         if currency.compare_amounts(value, 0.0) <= 0:
             raise UserError(_("The amount must be greater than zero."))
         if currency.compare_amounts(value, maximum) > 0:
@@ -181,14 +206,52 @@ class CollectionSheet(models.Model):
             "columns": [
                 allocation._proposal_column_payload(parts) for allocation in allocations
             ],
-            "pool": [
-                voucher._proposal_pool_payload()
-                for voucher in vouchers
-                if voucher.document_type != _SELLER_DEPOSIT
-                and currency.compare_amounts(voucher.proposal_free_amount, 0.0) > 0
-            ],
+            "pool": self._proposal_pool_cards(currency),
+            "document_types": self._proposal_document_types(),
             "events": self._proposal_event_payload(),
         }
+
+    @api.private
+    def _proposal_document_types(self):
+        """Every voucher type the company allows, for the board's type filter.
+
+        The filter used to offer only the types the pool held at that moment,
+        so assigning the last cheque took the ``check`` option -- and the
+        filter set on it -- away under the operator's cursor. The catalog is
+        the stable list, and it is read through ``fields_get`` so the labels
+        come back translated exactly as ``_selection_document_type`` resolves
+        them.
+        """
+        self.ensure_one()
+        selection = self.env["collection.voucher"].fields_get(["document_type"])
+        return [
+            {"code": code, "label": label}
+            for code, label in selection["document_type"]["selection"]
+        ]
+
+    @api.private
+    def _proposal_pool_cards(self, currency):
+        """The unassigned pool, grouped by the voucher's own payment type.
+
+        `Restablecer` empties every circuit into this one column at once, and
+        forty cards in sheet order are unreadable -- so the pool is always
+        ordered by type, under the same translated label the type filter
+        lists its options by, then by date and reference inside each type.
+        """
+        self.ensure_one()
+        cards = [
+            voucher._proposal_pool_payload()
+            for voucher in self.voucher_ids
+            if currency.compare_amounts(voucher.proposal_free_amount, 0.0) > 0
+        ]
+        cards.sort(
+            key=lambda card: (
+                card["method"].casefold(),
+                card["date"],
+                card["voucher_name"],
+            )
+        )
+        return cards
 
     @api.private
     def _proposal_event_payload(self):
@@ -222,9 +285,12 @@ class CollectionSheet(models.Model):
         self.ensure_one()
         previews = []
         Allocation = self.env["collection.allocation"]
+        live = set(Allocation.browse({key[0] for key in deltas}).exists().ids)
         for (allocation_id, kind), delta in deltas.items():
+            if allocation_id not in live:
+                continue
             allocation = Allocation.browse(allocation_id)
-            if not allocation.exists() or allocation.proposal_closed:
+            if allocation.proposal_closed:
                 continue
             budget = allocation._proposal_budget(kind) + delta
             preview = allocation._proposal_preview(kind, budget=max(budget, 0.0))
@@ -242,7 +308,13 @@ class CollectionSheet(models.Model):
         document_kind=None,
         amount=None,
         unify=False,
+        lines=None,
+        changes=None,
     ):
+        # Accepted and thrown away on purpose: a stale or hostile client may
+        # still post its own FIFO rows, and only the typed amount is trusted.
+        # `tests/test_receipt_proposal_actions.py` pins that they are ignored.
+        del lines, changes
         sheet = self._require_proposal_sheet(sheet_id)
         plan = sheet._proposal_transfer_plan(
             value_id=value_id,
@@ -312,10 +384,6 @@ class CollectionSheet(models.Model):
             self._proposal_ensure_column_open(source_allocation)
         else:
             voucher = self._proposal_voucher(voucher_id)
-            if voucher.document_type == _SELLER_DEPOSIT:
-                raise UserError(
-                    _("Seller deposits cannot be assigned from the unassigned pool.")
-                )
             maximum = voucher.proposal_free_amount
             source_allocation = self.env["collection.allocation"]
             source_kind = False
@@ -367,7 +435,9 @@ class CollectionSheet(models.Model):
         lines=None,
         changes=None,
     ):
-        # Only the typed amount is trusted; client-sent FIFO rows are ignored.
+        # Accepted and thrown away on purpose: a stale or hostile client may
+        # still post its own FIFO rows, and only the typed amount is trusted.
+        # `tests/test_receipt_proposal_actions.py` pins that they are ignored.
         del lines, changes
         sheet = self._require_proposal_sheet(sheet_id)
         plan = sheet._proposal_transfer_plan(
@@ -470,7 +540,7 @@ class CollectionSheet(models.Model):
         Returns True when the money merged into an existing card.
         """
         self.ensure_one()
-        receipt = allocation._proposal_receipt_get_or_create(document_kind)
+        receipt = allocation._receipt_get_or_create(document_kind)
         return self.env["collection.receipt.value"]._grow_voucher_amount(
             receipt, voucher, amount
         )
@@ -497,16 +567,16 @@ class CollectionSheet(models.Model):
                     return
                 voucher.allocation_id = False
             return
+        # One pass over the values instead of one pass per candidate: the
+        # comprehension inside `max(key=...)` re-read `receipt_id.allocation_id`
+        # for every (candidate, value) pair.
+        shares = dict.fromkeys(candidates.ids, 0.0)
+        for value in values:
+            allocation_id = value.receipt_id.allocation_id.id
+            if allocation_id in shares:
+                shares[allocation_id] += value.amount or 0.0
         best = max(
-            candidates,
-            key=lambda allocation: (
-                sum(
-                    value.amount or 0.0
-                    for value in values
-                    if value.receipt_id.allocation_id == allocation
-                ),
-                allocation.id,
-            ),
+            candidates, key=lambda allocation: (shares[allocation.id], allocation.id)
         )
         if voucher.allocation_id != best:
             voucher.allocation_id = best
@@ -519,10 +589,11 @@ class CollectionSheet(models.Model):
         pairs = {}
         for allocation_id, kind in deltas:
             pairs.setdefault(allocation_id, []).append(kind)
+        # One existence query for the whole batch instead of one per allocation.
+        live = set(Allocation.browse(pairs).exists().ids)
         for allocation_id, kinds in pairs.items():
-            allocation = Allocation.browse(allocation_id)
-            if allocation.exists():
-                allocation._proposal_recompute_kinds(kinds)
+            if allocation_id in live:
+                Allocation.browse(allocation_id)._proposal_recompute_kinds(kinds)
 
     @api.private
     def _proposal_circuit_plan(self, value_id, document_kind):
@@ -643,12 +714,9 @@ class CollectionSheet(models.Model):
             if line_id not in by_id:
                 raise UserError(_("A valid document is required."))
             line = by_id[line_id]
-            try:
-                value = currency.round(float((item or {}).get("amount") or 0.0))
-            except (TypeError, ValueError) as error:
-                raise UserError(_("A valid amount is required.")) from error
-            if math.isnan(value) or math.isinf(value):
-                raise UserError(_("A valid amount is required."))
+            value = sheet._proposal_parse_amount(
+                (item or {}).get("amount") or 0.0, currency
+            )
             if currency.compare_amounts(value, 0.0) < 0:
                 raise UserError(_("Applied amounts cannot be negative."))
             if currency.compare_amounts(value, line.invoice_balance or 0.0) > 0:
@@ -677,6 +745,96 @@ class CollectionSheet(models.Model):
             description=allocation.partner_id.display_name,
             value_from=before,
             value_to=after,
+        )
+        return sheet._proposal_board_payload()
+
+    # ------------------------------------------------------------------
+    # Reset: every assignable card back to the unassigned pool
+    # ------------------------------------------------------------------
+
+    @api.private
+    def _proposal_reset_plan(self):
+        """Every returnable card on this sheet, with its budget deltas.
+
+        `retention_certificate` is the one type that never goes back: a
+        retention is tax the customer withheld on their own documents, so it
+        is that customer's money by construction and a board-wide button MUST
+        NOT offer it to anybody else. Everything else returns, remittance
+        included -- a `seller_deposit` holding free money is a pool card like
+        any other, and the cash it replaced stays off the pool on its own
+        `replaced_amount`, so the pool total never double-counts the move.
+        Resetting is a board-wide action, so a closed customer blocks it by
+        name rather than being silently skipped: a partial reset would leave
+        the operator with a pool that does not hold what the button promised.
+        """
+        self.ensure_one()
+        Value = self.env["collection.receipt.value"]
+        values = Value.browse()
+        deltas = {}
+        customers = set()
+        closed = []
+        for allocation in self.allocation_ids:
+            movable = allocation.receipt_ids.value_ids.filtered(
+                lambda value: value.voucher_id.document_type != _RETENTION
+            )
+            if not movable:
+                continue
+            if allocation.proposal_closed:
+                closed.append(allocation.partner_id.display_name or "")
+                continue
+            customers.add(allocation.id)
+            values |= movable
+            for value in movable:
+                key = (allocation.id, value.receipt_id.document_kind)
+                deltas[key] = deltas.get(key, 0.0) - (value.amount or 0.0)
+        if closed:
+            raise UserError(
+                _(
+                    "Reopen these customers before resetting the board: %(names)s",
+                    names=", ".join(sorted(closed)),
+                )
+            )
+        return {
+            "values": values,
+            "vouchers": values.voucher_id,
+            "customers": len(customers),
+            "deltas": deltas,
+            "amount": sum(value.amount or 0.0 for value in values),
+        }
+
+    @api.model
+    def action_proposal_reset_vouchers(self, sheet_id=None):
+        sheet = self._require_proposal_sheet(sheet_id)
+        plan = sheet._proposal_reset_plan()
+        values = plan["values"]
+        if not values:
+            raise UserError(
+                _(
+                    "Every payment voucher that can be returned is already in "
+                    "the unassigned pool."
+                )
+            )
+        vouchers = plan["vouchers"]
+        cards = len(values)
+        # Nothing grows here, so the sheet-wide split cap only ever sees the
+        # assigned total going down -- the same order every mutation keeps.
+        values.unlink()
+        for voucher in vouchers:
+            sheet._proposal_sync_voucher_owner(voucher)
+        # Emptied circuits still have to be redistributed: FIFO on a budget of
+        # zero is what clears `amount_applied` off every document.
+        sheet._proposal_recompute_deltas(plan["deltas"])
+        sheet.env["collection.receipt.proposal.event"]._proposal_log(
+            sheet,
+            "reset",
+            _("Board reset to the unassigned pool"),
+            description=_(
+                "%(cards)s card(s) from %(customers)s customer(s)",
+                cards=cards,
+                customers=plan["customers"],
+            ),
+            value_from=plan["amount"],
+            value_to="0",
         )
         return sheet._proposal_board_payload()
 

@@ -8,10 +8,10 @@ import xlsxwriter
 from odoo import api, models
 
 from odoo.addons.collection.report.collection_sheet_xlsx import (
+    _BANNER_FILL,
     MONEY,
     NAVY,
     NAVY_DARK,
-    _BANNER_FILL,
     _a1,
     _abs_range,
     _date_cell,
@@ -24,13 +24,20 @@ from odoo.addons.collection.report.collection_sheet_xlsx import (
     _write_headers,
 )
 
+from ..models.collection_allocation import DOCUMENT_KINDS
+from ..models.collection_assignment_report import (
+    DOCUMENT_KEYS,
+    KIND_TITLES,
+    SUMMARY_KEYS,
+)
+
 SUMMARY_SHEET = "Resumen"
 CUSTOMER_SHEET = "Clientes"
 SUMMARY_SUBTITLE = "Asignaciones de Cobranza"
 CUSTOMER_SUBTITLE = "Asignaciones - Clientes"
-SUMMARY_LAST_COL = 10
+SUMMARY_LAST_COL = 9
 CUSTOMER_LAST_COL = 8
-SUMMARY_WIDTHS = (13, 32, 15, 16, 16, 15, 15, 15, 18, 18, 34)
+SUMMARY_WIDTHS = (13, 32, 15, 16, 16, 15, 15, 15, 18, 34)
 CUSTOMER_WIDTHS = (20, 18, 16, 20, 18, 16, 18, 17, 17)
 SUMMARY_HEADERS = (
     ("Código", 0, 0),
@@ -42,8 +49,7 @@ SUMMARY_HEADERS = (
     ("Deuda Total", 6, 6),
     ("Pendiente", 7, 7),
     ("Estado Circuito", 8, 8),
-    ("Estado Cliente", 9, 9),
-    ("Nota de Cierre", 10, 10),
+    ("Nota de Cierre", 9, 9),
 )
 DOCUMENT_HEADERS = (
     ("Documento", 0, 0),
@@ -111,8 +117,6 @@ _VOUCHER_SHAPES = {
         ),
     },
 }
-SUMMARY_KEYS = ("collected", "applied", "on_account", "debt_total", "pending")
-DOCUMENT_KEYS = ("invoice_balance", "amount_applied", "commission")
 # Fills mark structure; rules and typography mark tables and totals. Three
 # structural levels step dark -> medium -> light in one blue family, each at
 # least 1.4x apart in luminance, so nesting is legible at a glance. Subtotals
@@ -139,7 +143,7 @@ _VOUCHER_AMOUNT_COL = 7
 _VOUCHER_APPLIED_COL = CUSTOMER_LAST_COL
 _CASH_AMOUNT_COL = 3
 _BALANCE_FIRST_COL = 6
-_KIND_ORDER = (("invoice", "Facturas"), ("quotation", "Presupuestos"))
+_KIND_ORDER = tuple((kind, KIND_TITLES[kind]) for kind in DOCUMENT_KINDS)
 _RECON_COMPONENTS = ("assigned_total", "unassigned_total", "replaced_total")
 
 
@@ -201,9 +205,7 @@ def _receipt_formats(workbook):
             align="center",
             **thin,
         ),
-        "data_datetime": fmt(
-            num_format="DD/MM/YYYY HH:MM", align="center", **thin
-        ),
+        "data_datetime": fmt(num_format="DD/MM/YYYY HH:MM", align="center", **thin),
         "data_money_flag": fmt(
             bold=True,
             bg_color=FLAG_FILL,
@@ -232,12 +234,8 @@ def _receipt_formats(workbook):
             top=2,
             top_color=NAVY,
         ),
-        "recon_row": fmt(
-            bold=True, font_color=NAVY_DARK, align="right", **thin
-        ),
-        "recon_row_money": fmt(
-            bold=True, font_color=NAVY_DARK, **money, **thin
-        ),
+        "recon_row": fmt(bold=True, font_color=NAVY_DARK, align="right", **thin),
+        "recon_row_money": fmt(bold=True, font_color=NAVY_DARK, **money, **thin),
         "balance": balance,
         "balance_money": balance_money,
         "customer_total": customer_total,
@@ -405,8 +403,7 @@ def _write_summary(ws, fmt, payload, start, last_col):
                 fmt["data_money"],
             )
         _write(ws, current, 8, row.get("kind_status_label") or "", fmt["data"])
-        _write(ws, current, 9, row.get("customer_status_label") or "", fmt["data"])
-        _write(ws, current, 10, row.get("note") or "", fmt["data"])
+        _write(ws, current, 9, row.get("note") or "", fmt["data"])
     data_first = first if rows else None
     last = first + len(rows) - 1 if rows else None
     cursor = first + len(rows)
@@ -529,10 +526,7 @@ def _write_voucher_block(ws, fmt, block, start, applied_header="Aplicado"):
         (
             ("Referencia", 0, 0),
             (date_header, 1, 1),
-            *(
-                (cell[0], col, col)
-                for col, cell in enumerate(shape["middle"], start=2)
-            ),
+            *((cell[0], col, col) for col, cell in enumerate(shape["middle"], start=2)),
             ("Importe del Valor", _VOUCHER_AMOUNT_COL, _VOUCHER_AMOUNT_COL),
             (applied_header, _VOUCHER_APPLIED_COL, _VOUCHER_APPLIED_COL),
         ),
@@ -549,7 +543,9 @@ def _write_voucher_block(ws, fmt, block, start, applied_header="Aplicado"):
         _write_typed(ws, fmt, current, 1, row, date_key, "date", index)
         for col, (_title, key, kind) in enumerate(shape["middle"], start=2):
             _write_typed(ws, fmt, current, col, row, key, kind, index)
-        _write(ws, current, _VOUCHER_AMOUNT_COL, row.get("voucher_amount") or 0.0, money)
+        _write(
+            ws, current, _VOUCHER_AMOUNT_COL, row.get("voucher_amount") or 0.0, money
+        )
         _write(
             ws, current, _VOUCHER_APPLIED_COL, row.get("applied_amount") or 0.0, money
         )
@@ -694,9 +690,6 @@ def _write_customer(ws, fmt, customer, start):
     code = customer.get("code") or ""
     name = customer.get("name") or ""
     heading = "Cliente — " + "  ".join(part for part in (code, name) if part)
-    status = customer.get("status_label") or ""
-    if status:
-        heading = f"{heading}  [{status}]"
     note = customer.get("note") or ""
     if note:
         heading = f"{heading}  — {note}"

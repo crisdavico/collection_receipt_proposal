@@ -17,6 +17,7 @@ _EVENT_TYPES = {
     "circuit",
     "impute",
     "auto_impute",
+    "reset",
     "close",
     "reopen",
 }
@@ -71,7 +72,7 @@ class TestReceiptProposalEvents(ReceiptProposalCommon, TransactionCase):
         self.assertTrue(company_field.index)
 
     def test_event_type_selection_is_closed_and_invalid_refuses(self):
-        """RED/GREEN: only the nine coded types persist; anything else refuses."""
+        """RED/GREEN: only the ten coded types persist; anything else refuses."""
         types = {key for key, _label in self.Event._fields["event_type"].selection}
         self.assertEqual(types, _EVENT_TYPES)
         with self.assertRaises(ValueError):

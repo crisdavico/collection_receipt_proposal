@@ -2,6 +2,7 @@
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl).
 
 from odoo.exceptions import UserError
+from odoo.fields import Command
 from odoo.tests import TransactionCase
 
 from .common import ReceiptProposalCommon
@@ -291,7 +292,9 @@ class TestReceiptProposalActions(ReceiptProposalCommon, TransactionCase):
         )
 
     def _assert_full_board(self, board):
-        self.assertEqual(set(board), {"sheet", "columns", "pool", "events"})
+        self.assertEqual(
+            set(board), {"sheet", "columns", "pool", "document_types", "events"}
+        )
         self.assertEqual(board["sheet"]["id"], self.sheet.id)
         self.assertEqual(len(board["columns"]), 2)
 
@@ -610,8 +613,14 @@ class TestReceiptProposalActions(ReceiptProposalCommon, TransactionCase):
         )
         self.assertGreaterEqual(len(self._events("unify")), 2)
 
-    def test_remittance_is_not_pool_draggable(self):
-        """A seller_deposit MUST refuse a pool transfer and keep allocation_id unset."""
+    def test_remittance_is_pool_draggable_but_never_owns_an_allocation(self):
+        """A seller_deposit assigns from the pool and still gets no owner.
+
+        The remittance is a pool card like any other, so it can be dropped on
+        a circuit -- but `allocation_id` names customer money and a deposit's
+        partner is the remittance sentinel, so owner sync MUST keep skipping
+        it (`allocation.total_vouchers` would otherwise count it twice).
+        """
         sheet = self._create_sheet(force_new=True)
         partner = self._partner("REM-POOL")
         deposit = self._create_seller_deposit(sheet, amount=80.0)
@@ -620,13 +629,180 @@ class TestReceiptProposalActions(ReceiptProposalCommon, TransactionCase):
         )
         self._confirm(sheet)
         self.assertFalse(deposit.allocation_id)
+        self.Sheet.action_proposal_transfer(
+            sheet_id=sheet.id,
+            voucher_id=deposit.id,
+            to_allocation_id=allocation.id,
+            document_kind="invoice",
+            amount=80.0,
+        )
+        self.assertTrue(deposit.proposal_value_ids)
+        self.assertEqual(allocation.proposal_collected_invoice, 80.0)
+        self.assertFalse(deposit.allocation_id)
+
+    # ------------------------------------------------------------------
+    # Reset: every assignable card back to Sin asignar
+    # ------------------------------------------------------------------
+
+    def test_reset_returns_every_card_to_the_unassigned_pool(self):
+        """RED/GREEN: reset empties both circuits of both customers."""
+        self._assign(self.allocation_a, self.voucher_a, 200.0)
+        self._assign(self.allocation_a, self.voucher_a, 50.0, document_kind="quotation")
+        self._assign(self.allocation_b, self.voucher_b, 80.0)
+        board = self.Sheet.action_proposal_reset_vouchers(sheet_id=self.sheet.id)
+        self.assertFalse(self.voucher_a.proposal_value_ids)
+        self.assertFalse(self.voucher_b.proposal_value_ids)
+        self.assertEqual(self.allocation_a.proposal_collected_invoice, 0.0)
+        self.assertEqual(self.allocation_a.proposal_collected_quotation, 0.0)
+        self.assertEqual(self.allocation_b.proposal_collected_invoice, 0.0)
+        self.assertEqual(
+            {item["voucher_id"] for item in board["pool"]},
+            {self.voucher_a.id, self.voucher_b.id},
+        )
+        self.assertFalse(any(column["cards"] for column in board["columns"]))
+
+    def test_reset_clears_every_imputation_by_fifo(self):
+        """RED/GREEN: a circuit emptied to zero redistributes to no document."""
+        self._assign(self.allocation_a, self.voucher_a, 200.0)
+        self.assertEqual(self.allocation_a.proposal_applied_invoice, 200.0)
+        self.Sheet.action_proposal_reset_vouchers(sheet_id=self.sheet.id)
+        self.assertEqual(self.allocation_a.proposal_applied_invoice, 0.0)
+        self.assertEqual(
+            {line.amount_applied for line in self.allocation_a.line_ids},
+            {0.0},
+        )
+
+    def test_reset_clears_the_voucher_owner_and_writes_one_event(self):
+        """RED/GREEN: owner sync runs after the unlink; one reset event is logged."""
+        self._assign(self.allocation_a, self.voucher_a, 200.0)
+        self.assertEqual(self.voucher_a.allocation_id, self.allocation_a)
+        self.Sheet.action_proposal_reset_vouchers(sheet_id=self.sheet.id)
+        self.assertFalse(self.voucher_a.allocation_id)
+        events = self._events("reset")
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events.value_to, "0")
+        self.assertFalse(events.allocation_id)
+
+    def test_reset_refuses_when_nothing_is_assigned(self):
+        """RED/GREEN: an untouched board has nothing to return to the pool."""
         with self.assertRaises(UserError):
+            self.Sheet.action_proposal_reset_vouchers(sheet_id=self.sheet.id)
+
+    def test_reset_refuses_while_a_customer_holding_cards_is_closed(self):
+        """RED/GREEN: a closed column blocks the whole reset, by name."""
+        self._assign(self.allocation_a, self.voucher_a, 200.0)
+        self._assign(self.allocation_b, self.voucher_b, 80.0)
+        self.Sheet.action_proposal_close_customer(
+            sheet_id=self.sheet.id,
+            allocation_id=self.allocation_b.id,
+            note="cerrado con diferencias",
+        )
+        with self.assertRaises(UserError) as caught:
+            self.Sheet.action_proposal_reset_vouchers(sheet_id=self.sheet.id)
+        self.assertIn(self.allocation_b.partner_id.display_name, str(caught.exception))
+        self.assertTrue(self.voucher_a.proposal_value_ids)
+        self.assertTrue(self.voucher_b.proposal_value_ids)
+
+    def test_reset_ignores_a_closed_customer_holding_no_cards(self):
+        """RED/GREEN: only a closed column that actually holds money blocks."""
+        self._assign(self.allocation_a, self.voucher_a, 200.0)
+        self.Sheet.action_proposal_close_customer(
+            sheet_id=self.sheet.id,
+            allocation_id=self.allocation_b.id,
+            note="sin movimientos en la planilla",
+        )
+        self.Sheet.action_proposal_reset_vouchers(sheet_id=self.sheet.id)
+        self.assertFalse(self.voucher_a.proposal_value_ids)
+        self.assertTrue(self.allocation_b.proposal_closed)
+
+    def test_reset_returns_a_remittance_to_the_pool(self):
+        """A seller_deposit returns like any other card, and lands in the pool.
+
+        The cash it replaced stays off the pool on its own `replaced_amount`,
+        so the deposit stands in for that money and the pool never shows both.
+        """
+        sheet = self._create_sheet(force_new=True)
+        partner = self._partner("RESET-REM")
+        cash = self._create_voucher(partner, sheet, amount=100.0, document_type="cash")
+        deposit = self._create_seller_deposit(sheet, amount=100.0)
+        allocation = self._create_allocation(
+            sheet,
+            partner,
+            vouchers=cash,
+            lines=[self._line_vals(invoice_balance=100.0)],
+        )
+        receipt = self._create_receipt(allocation, "invoice")
+        self._create_value(receipt, cash, 100.0)
+        self._confirm(sheet)
+        self._cash_replace(receipt, cash, deposit, 100.0)
+        self.assertTrue(deposit.proposal_value_ids)
+        board = self.Sheet.action_proposal_reset_vouchers(sheet_id=sheet.id)
+        self.assertFalse(deposit.proposal_value_ids)
+        self.assertEqual(allocation.proposal_collected_invoice, 0.0)
+        pool = {item["voucher_id"]: item for item in board["pool"]}
+        self.assertIn(deposit.id, pool)
+        self.assertAlmostEqual(pool[deposit.id]["free_amount"], 100.0, places=2)
+        self.assertNotIn(cash.id, pool)
+        # Owner sync still skips the remittance: `allocation_id` names customer
+        # money and a deposit's partner is the remittance sentinel.
+        self.assertFalse(deposit.allocation_id)
+
+    def _retention_sheet(self):
+        """A sheet with one retention and one transfer, both fully assigned."""
+        self.env.company.write(
+            {
+                "allowed_document_type_ids": [
+                    Command.link(
+                        self.env.ref(
+                            "collection.document_type_retention_certificate"
+                        ).id
+                    )
+                ]
+            }
+        )
+        sheet = self._create_sheet(force_new=True)
+        partner = self._partner("RESET-RET")
+        retention = self._create_voucher(
+            partner,
+            sheet,
+            amount=40.0,
+            document_type="retention_certificate",
+            retention_kind="iva",
+        )
+        transfer = self._create_voucher(partner, sheet, amount=60.0)
+        allocation = self._create_allocation(
+            sheet,
+            partner,
+            vouchers=retention | transfer,
+            lines=[self._line_vals(invoice_balance=100.0)],
+        )
+        self._confirm(sheet)
+        for voucher in (retention, transfer):
             self.Sheet.action_proposal_transfer(
                 sheet_id=sheet.id,
-                voucher_id=deposit.id,
+                voucher_id=voucher.id,
                 to_allocation_id=allocation.id,
                 document_kind="invoice",
-                amount=80.0,
+                amount=voucher.amount,
             )
-        self.assertFalse(deposit.allocation_id)
-        self.assertFalse(deposit.proposal_value_ids)
+        return sheet, allocation, retention, transfer
+
+    def test_reset_leaves_a_retention_where_it_is(self):
+        """A retention is the customer's own withheld tax, so it never returns."""
+        sheet, allocation, retention, transfer = self._retention_sheet()
+        board = self.Sheet.action_proposal_reset_vouchers(sheet_id=sheet.id)
+        self.assertTrue(retention.proposal_value_ids)
+        self.assertFalse(transfer.proposal_value_ids)
+        self.assertEqual(allocation.proposal_collected_invoice, 40.0)
+        # FIFO re-ran on what is left, so the retention stays imputed.
+        self.assertEqual(allocation.proposal_applied_invoice, 40.0)
+        pool_ids = {item["voucher_id"] for item in board["pool"]}
+        self.assertNotIn(retention.id, pool_ids)
+        self.assertIn(transfer.id, pool_ids)
+
+    def test_reset_refuses_a_board_holding_only_retentions(self):
+        """With nothing returnable left, reset raises instead of no-opping."""
+        sheet, _allocation, _retention, _transfer = self._retention_sheet()
+        self.Sheet.action_proposal_reset_vouchers(sheet_id=sheet.id)
+        with self.assertRaises(UserError):
+            self.Sheet.action_proposal_reset_vouchers(sheet_id=sheet.id)

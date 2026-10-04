@@ -38,8 +38,10 @@ VOUCHER_STATE_TITLES = {
     "validated_collections": "Validado por cobranzas",
 }
 REPLACEMENT_TITLES = {"replace": "Reemplazo", "reverse": "Reversión"}
-_SUMMARY_KEYS = ("collected", "applied", "on_account", "debt_total", "pending")
-_DOCUMENT_KEYS = ("invoice_balance", "amount_applied", "commission")
+# The workbook writes these columns in this order; `report/` imports them
+# rather than restating them, so producer and consumer cannot drift.
+SUMMARY_KEYS = ("collected", "applied", "on_account", "debt_total", "pending")
+DOCUMENT_KEYS = ("invoice_balance", "amount_applied", "commission")
 _CUSTOMER_KEYS = ("total_collected", "total_applied", "total_on_account")
 _XLSX_MIMETYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
@@ -117,7 +119,6 @@ class CollectionAllocation(models.Model):
             "kind_status_label": _status_title(
                 self._proposal_kind_status(document_kind, figures=figures)
             ),
-            "customer_status_label": _status_title(self.proposal_status),
             "closed": self.proposal_closed,
             "note": self.proposal_note or "",
         }
@@ -210,7 +211,7 @@ class CollectionAllocation(models.Model):
                 }
             )
         block = {"document_rows": rows}
-        for key in _DOCUMENT_KEYS:
+        for key in DOCUMENT_KEYS:
             block[f"subtotal_{key}"] = sum(row[key] for row in rows)
         return block
 
@@ -341,12 +342,12 @@ class CollectionSheet(models.Model):
             "commission_percent": percent,
             "summary_rows": summary_rows,
             "summary_totals": self._receipt_assignment_totals(
-                summary_rows, _SUMMARY_KEYS
+                summary_rows, SUMMARY_KEYS
             ),
             "kind_totals": {
                 kind: self._receipt_assignment_totals(
                     [row for row in summary_rows if row["kind"] == kind],
-                    _SUMMARY_KEYS,
+                    SUMMARY_KEYS,
                 )
                 for kind in DOCUMENT_KINDS
             },
@@ -374,7 +375,6 @@ class CollectionSheet(models.Model):
         return {
             "code": code,
             "name": name,
-            "status_label": _status_title(allocation.proposal_status),
             "closed": allocation.proposal_closed,
             "note": allocation.proposal_note or "",
             "circuits": ordered,

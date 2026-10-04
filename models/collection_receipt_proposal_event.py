@@ -15,6 +15,7 @@ EVENT_TYPE_SELECTION = [
     ("circuit", "Circuit"),
     ("impute", "Impute"),
     ("auto_impute", "Automatic Imputation"),
+    ("reset", "Reset"),
     ("close", "Close"),
     ("reopen", "Reopen"),
 ]
@@ -76,6 +77,8 @@ class CollectionReceiptProposalEvent(models.Model):
         return super().create(vals_list)
 
     def write(self, vals):
+        # An empty recordset write is a legal ORM no-op and the framework does
+        # make them; only a write that would actually touch a row refuses.
         if self:
             raise UserError(_("Proposal events cannot be modified."))
         return super().write(vals)
@@ -98,7 +101,7 @@ class CollectionReceiptProposalEvent(models.Model):
         for key in ("allocation_id", "voucher_id"):
             record = extra.pop(key, None)
             if record:
-                vals[key] = record.id if hasattr(record, "id") else record
+                vals[key] = record.id
         for key in ("description", "value_from", "value_to"):
             value = extra.pop(key, None)
             if value not in (None, False, ""):

@@ -84,7 +84,9 @@ class TestReceiptProposalBoard(ReceiptProposalCommon, TransactionCase):
     def test_board_payload_shape(self):
         """RED/GREEN: sheet, columns, pool and events are all present."""
         board = self.Sheet.get_proposal_board(self.sheet.id)
-        self.assertEqual(set(board), {"sheet", "columns", "pool", "events"})
+        self.assertEqual(
+            set(board), {"sheet", "columns", "pool", "document_types", "events"}
+        )
         self.assertEqual(
             set(board["sheet"]),
             {"id", "name", "state", "currency", "editable"},
@@ -235,6 +237,91 @@ class TestReceiptProposalBoard(ReceiptProposalCommon, TransactionCase):
             {item["voucher_id"] for item in board["pool"]},
         )
 
+    def test_pool_is_grouped_by_payment_type(self):
+        """RED/GREEN: `Sin asignar` is ordered by type, then date, then reference.
+
+        `Restablecer` drops every card back into this one column at once, so
+        sheet order would hand the operator an unreadable pile.
+        """
+        self.env.company.write(
+            {
+                "allowed_document_type_ids": [
+                    Command.link(self.env.ref("collection.document_type_check").id)
+                ]
+            }
+        )
+        sheet = self._create_sheet(force_new=True)
+        partner = self._partner("POOL-ORDER")
+        self._create_voucher(partner, sheet, amount=10.0, document_type="cash")
+        self._create_voucher(
+            partner,
+            sheet,
+            amount=20.0,
+            document_type="check",
+            check_bank="Galicia",
+            check_number="00012345",
+        )
+        self._create_voucher(partner, sheet, amount=30.0, document_type="bank_transfer")
+        self._create_voucher(partner, sheet, amount=40.0, document_type="cash")
+        self._create_allocation(
+            sheet, partner, lines=[self._line_vals(invoice_balance=100.0)]
+        )
+        self._confirm(sheet)
+        board = self.Sheet.get_proposal_board(sheet.id)
+        methods = [item["method"] for item in board["pool"]]
+        self.assertEqual(len(methods), 4)
+        self.assertEqual(methods, sorted(methods, key=str.casefold))
+        self.assertEqual(len(set(methods)), 3)
+        # The type groups the column; date then reference order it inside each
+        # group -- the two `cash` cards are what exercise the tiebreak.
+        keys = [
+            (item["method"].casefold(), item["date"], item["voucher_name"])
+            for item in board["pool"]
+        ]
+        self.assertEqual(keys, sorted(keys))
+        cash_names = [
+            item["voucher_name"]
+            for item in board["pool"]
+            if item["method"].casefold() == methods[0].casefold()
+        ]
+        self.assertEqual(cash_names, sorted(cash_names))
+
+    def test_document_types_ship_the_whole_catalog(self):
+        """RED/GREEN: the type filter is offered the company's catalog.
+
+        Built from the pool, the option vanished the moment the last voucher
+        of that type was assigned -- taking the filter set on it with it. So
+        the payload carries every type the company allows, with the label
+        `_selection_document_type` resolves, and the pool only ever adds a
+        code the catalog no longer names.
+        """
+        self.env.company.write(
+            {
+                "allowed_document_type_ids": [
+                    Command.link(self.env.ref("collection.document_type_check").id)
+                ]
+            }
+        )
+        board = self.Sheet.get_proposal_board(self.sheet.id)
+        types = board["document_types"]
+        self.assertTrue(types)
+        for entry in types:
+            self.assertEqual(set(entry), {"code", "label"})
+        codes = [entry["code"] for entry in types]
+        self.assertEqual(len(codes), len(set(codes)))
+        selection = dict(
+            self.env["collection.voucher"].fields_get(["document_type"])[
+                "document_type"
+            ]["selection"]
+        )
+        self.assertEqual(codes, list(selection))
+        self.assertIn("check", codes)
+        # A type the pool does not hold right now is still offered.
+        self.assertNotIn("check", [item["document_type"] for item in board["pool"]])
+        self.assertEqual(
+            [entry["label"] for entry in types], [selection[code] for code in codes]
+        )
+
     def test_event_payload_shape(self):
         """RED/GREEN: events[] carries the board audit keys, newest first."""
         Event = self.env["collection.receipt.proposal.event"]
@@ -327,12 +414,11 @@ class TestReceiptProposalBoard(ReceiptProposalCommon, TransactionCase):
         )
         self._confirm(sheet_b)
         before = self._snapshot_money()
-        try:
+        # `_require_proposal_sheet` now asks for read access explicitly, so the
+        # refusal is a deterministic AccessError rather than whichever error a
+        # later field read happened to raise.
+        with self.assertRaises(AccessError):
             self.Sheet.with_user(user).get_proposal_board(sheet_b.id)
-        except (UserError, AccessError):
-            pass
-        else:
-            self.fail("other-company board RPC must refuse")
         self._assert_money_unchanged(before)
         self._assert_hidden_from_user(user, sheet_b, ["name", "id"])
 
@@ -393,7 +479,8 @@ class TestReceiptProposalBoard(ReceiptProposalCommon, TransactionCase):
             value_id=value.id,
             document_kind="quotation",
         )
-        self.assertTrue(preview)
+        for item in preview:
+            self.assertEqual(set(item), _PREVIEW_KEYS)
         self.assertEqual(value.receipt_id.document_kind, "invoice")
         self.assertEqual(value.amount, 120.0)
         self._assert_money_unchanged(before)
@@ -410,7 +497,8 @@ class TestReceiptProposalBoard(ReceiptProposalCommon, TransactionCase):
             voucher_id=self.scenario["voucher_a"].id,
             keep_value_id=keep.id,
         )
-        self.assertTrue(preview)
+        for item in preview:
+            self.assertEqual(set(item), _PREVIEW_KEYS)
         self.assertTrue(keep.exists())
         self.assertTrue(other.exists())
         self.assertEqual(keep.amount, 200.0)
@@ -498,8 +586,13 @@ class TestReceiptProposalBoard(ReceiptProposalCommon, TransactionCase):
         self.assertIn(cash.id, pool)
         self.assertAlmostEqual(pool[cash.id]["free_amount"], 60.0, places=2)
 
-    def test_excess_deposit_is_not_a_pool_card(self):
-        """Unassigned seller_deposit MUST NOT appear in the unassigned pool."""
+    def test_excess_deposit_is_a_pool_card(self):
+        """A seller_deposit holding free money IS an unassigned pool card.
+
+        The pool is every voucher with money left, remittance included -- the
+        same set the Asignaciones export lists under `Valores sin asignar`, so
+        the board and the workbook answer "what is still loose?" alike.
+        """
         sheet = self._create_sheet(force_new=True)
         partner = self._partner("EXCESS-DEP")
         deposit = self._create_seller_deposit(sheet, amount=80.0)
@@ -509,5 +602,7 @@ class TestReceiptProposalBoard(ReceiptProposalCommon, TransactionCase):
         self._confirm(sheet)
         self.assertGreater(deposit.proposal_free_amount, 0.0)
         board = self.Sheet.get_proposal_board(sheet.id)
-        pool_ids = {item["voucher_id"] for item in board["pool"]}
-        self.assertNotIn(deposit.id, pool_ids)
+        pool = {item["voucher_id"]: item for item in board["pool"]}
+        self.assertIn(deposit.id, pool)
+        self.assertAlmostEqual(pool[deposit.id]["free_amount"], 80.0, places=2)
+        self.assertEqual(pool[deposit.id]["document_type"], "seller_deposit")

@@ -1,18 +1,20 @@
 /** @odoo-module **/
 
 import {
+  AMOUNT_EPSILON,
   BOARD_MODEL,
   CIRCUITS,
   CIRCUIT_KEYS,
   FILTER_DEFAULTS,
   PREVIEW_DEBOUNCE_MS,
   SORT_ORDERS,
-  cardClass,
+  autoscrollDelta,
   cardsOfVoucher,
+  circuitGap,
   circuitOf,
   columnTotals,
+  coverageOf,
   eventBullet,
-  eventLabel,
   filterPool,
   formatAmount,
   formatBare,
@@ -20,15 +22,20 @@ import {
   formatShortDate,
   glyphOf,
   matchesCustomer,
+  methodOptions,
   nextIsolate,
   parseAmount,
-  poolMethodOptions,
+  rawAmount,
+  resetBlockers,
+  resetSummary,
+  roundAmount,
   rpcErrorMessage,
   sanitizeBoardPayload,
+  sortCardsByType,
   sortColumns,
   splitKind,
-  statusLabel,
   transferButtonLabel,
+  typeClass,
   validateTransferAmount,
   visibleCircuitKeys,
 } from "@collection_receipt_proposal/receipt_proposal/receipt_proposal_helpers.esm";
@@ -39,6 +46,13 @@ import {registry} from "@web/core/registry";
 import {standardActionServiceProps} from "@web/webclient/actions/action_service";
 import {useHotkey} from "@web/core/hotkeys/hotkey_hook";
 import {useService} from "@web/core/utils/hooks";
+
+/* Los dos valores de `overflow` que hacen a un elemento scrolleable de verdad.
+   `hidden` también acepta que le escriban `scrollTop`, y el tablero está lleno
+   de tarjetas con `overflow: hidden`: sin este filtro, la primera de ellas se
+   tragaría el gesto y desplazaría su propio contenido en vez de dejar pasar el
+   arrastre al carril. */
+const SCROLLABLE_OVERFLOW = new Set(["auto", "scroll"]);
 
 export class ReceiptProposalAction extends Component {
   static template = "collection_receipt_proposal.ReceiptProposalAction";
@@ -66,9 +80,15 @@ export class ReceiptProposalAction extends Component {
     });
     this.dragged = null;
     this.previewTimer = null;
+    this.dragPointer = null;
+    this.dragScrollListener = null;
+    this.dragScrollFrame = null;
     useHotkey("escape", () => this.onEscape());
     onWillStart(() => this.loadBoard());
-    onWillUnmount(() => this.clearPreviewTimer());
+    onWillUnmount(() => {
+      this.clearPreviewTimer();
+      this.stopAutoScroll();
+    });
   }
 
   // ----------------------------------------------------------------
@@ -84,10 +104,6 @@ export class ReceiptProposalAction extends Component {
     return sheetId;
   }
 
-  get board() {
-    return this.state.board;
-  }
-
   get columns() {
     return (this.state.board && this.state.board.columns) || [];
   }
@@ -98,6 +114,10 @@ export class ReceiptProposalAction extends Component {
 
   get events() {
     return (this.state.board && this.state.board.events) || [];
+  }
+
+  get documentTypes() {
+    return (this.state.board && this.state.board.document_types) || [];
   }
 
   get currency() {
@@ -177,17 +197,20 @@ export class ReceiptProposalAction extends Component {
     return filterPool(this.pool, this.state.filters.method);
   }
 
-  get poolMethodOptions() {
-    return poolMethodOptions(this.pool);
+  /* Todo el catálogo de tipos de la compañía, no sólo los que el pool tiene
+     ahora: el operador filtra por el tipo que tiene en la mano, y la opción no
+     puede desaparecer porque se asignó el último comprobante de ese tipo. */
+  get methodOptions() {
+    return methodOptions(this.documentTypes, this.pool);
   }
 
-  /* El control de tipo existe sólo cuando hay entre qué elegir: con un solo
-     tipo en el pool filtrar por él es no filtrar, y con el pool vacío no hay
-     nada que filtrar. Se ESCONDE en vez de deshabilitarse — un control muerto
-     en pantalla se lee como un control roto, que es exactamente lo que un
-     `disabled` sobre un pool vacío parecía. */
+  /* El control de tipo existe sólo cuando hay entre qué elegir: con el pool
+     vacío no hay nada que filtrar, y con un solo tipo en el catálogo filtrar
+     por él es no filtrar. Se ESCONDE en vez de deshabilitarse — un control
+     muerto en pantalla se lee como un control roto, que es exactamente lo que
+     un `disabled` sobre un pool vacío parecía. */
   get canFilterMethod() {
-    return this.poolMethodOptions.length > 1;
+    return this.pool.length > 0 && this.methodOptions.length > 1;
   }
 
   get sortOrders() {
@@ -243,14 +266,14 @@ export class ReceiptProposalAction extends Component {
       }
     }
     this.state.openSplits = this.state.openSplits.filter((id) => valueIds.has(id));
-    /* El de tipo de valor es el único filtro que puede nombrar una fila que
-       dejó de existir — asignado el último cheque, un filtro `check` dejaría
-       la columna vacía bajo un control que ya no lo ofrece, o que ya no se
-       dibuja. Se limpia contra lo que el control ofrece, no contra el pool
-       crudo, así el filtro nunca sobrevive al control que lo puso. Los otros
-       tres sobreviven a cualquier refresco. */
+    /* El de tipo de valor es el único filtro que puede quedar sin control que
+       lo revierta: vaciado el pool, la barra deja de dibujar el select y un
+       filtro `check` seguiría escondiendo tarjetas sin nada que lo limpie. Se
+       limpia contra lo que el control ofrece —el catálogo, no el pool crudo—
+       así el filtro nunca sobrevive al control que lo puso. Los otros tres
+       sobreviven a cualquier refresco. */
     const offered = new Set(
-      this.canFilterMethod ? this.poolMethodOptions.map((option) => option.code) : []
+      this.canFilterMethod ? this.methodOptions.map((option) => option.code) : []
     );
     if (this.state.filters.method && !offered.has(this.state.filters.method)) {
       this.state.filters.method = "";
@@ -305,10 +328,6 @@ export class ReceiptProposalAction extends Component {
     return formatBare(value, this.currency);
   }
 
-  circuitOf(documentKind) {
-    return circuitOf(documentKind);
-  }
-
   circuitTag(documentKind) {
     const circuit = circuitOf(documentKind);
     return circuit ? circuit.tag : "S/C";
@@ -319,20 +338,38 @@ export class ReceiptProposalAction extends Component {
     return circuit ? circuit.short : "none";
   }
 
-  cardClass(card) {
-    return cardClass(card);
+  /* Cuántos documentos reimputa un plan del panel de previsualización, con el
+     sustantivo pegado al número: dos `t-out` hermanos los renderizaban sin el
+     espacio del medio ("1facturas"). Concuerda en número, y cuando el modal ya
+     fijó el circuito el sustantivo es neutro — ver `previewCircuits`. */
+  previewCountLabel(plan, withCircuit) {
+    const count = (plan.changes || []).length;
+    const circuit = withCircuit ? circuitOf(plan.document_kind) : null;
+    if (!circuit) {
+      return `${count} ${count === 1 ? _t("documento") : _t("documentos")}`;
+    }
+    return `${count} ${count === 1 ? circuit.one : circuit.noun}`;
+  }
+
+  /* El sustantivo suelto, para las líneas que no llevan número. */
+  previewNoun(plan, withCircuit) {
+    const circuit = withCircuit ? circuitOf(plan.document_kind) : null;
+    return circuit ? circuit.noun : _t("documentos");
+  }
+
+  typeClass(documentType) {
+    return typeClass(documentType);
   }
 
   glyphOf(documentType) {
     return glyphOf(documentType);
   }
 
-  statusLabel(status) {
-    return statusLabel(status);
-  }
-
-  eventLabel(eventType) {
-    return eventLabel(eventType);
+  /* La tarjeta del pool es angosta y trunca método, referencia y cliente, así
+     que los tres viajan enteros en el `title`: el operador arrastra al cliente
+     que pagó, y ese nombre no puede quedar cortado sin forma de leerlo. */
+  poolCardTitle(item) {
+    return [item.method, item.reference, item.partner_name].filter(Boolean).join(" · ");
   }
 
   eventBullet(eventType) {
@@ -376,8 +413,18 @@ export class ReceiptProposalAction extends Component {
     return column.documents[kind].length > 0 || column.circuits[kind].collected !== 0;
   }
 
+  /* Un circuito que todavía no recibió plata: tiene deuda que mostrar, pero
+     ni barra de cobertura (siempre 0 %) ni filas que listar. La tarjeta se
+     queda en su encabezado — figuras incluidas — en vez de gastar media
+     tarjeta de cliente en un cartel de vacío por cada circuito. */
+  hasValues(column, kind) {
+    return this.circuitCards(column, kind).length > 0;
+  }
+
+  /* Agrupadas por tipo de comprobante: el circuito es el mismo para todas las
+     filas de esta tarjeta, así que el tipo es lo único que las distingue. */
   circuitCards(column, kind) {
-    return column.cards.filter((card) => card.document_kind === kind);
+    return sortCardsByType(column.cards.filter((card) => card.document_kind === kind));
   }
 
   /* The card header carries this circuit's figures, and while the circuit is
@@ -400,16 +447,7 @@ export class ReceiptProposalAction extends Component {
 
   circuitCoverage(column, kind) {
     const figures = column.circuits[kind];
-    let ratio = 0;
-    if (figures.total > 0) {
-      ratio = (figures.collected / figures.total) * 100;
-    } else if (figures.collected > 0) {
-      ratio = 100;
-    }
-    return {
-      percent: Math.max(Math.round(ratio), 0),
-      fill: Math.min(Math.max(ratio, 0), 100),
-    };
+    return coverageOf(figures.collected, figures.total);
   }
 
   isCollapsed(allocationId) {
@@ -465,6 +503,7 @@ export class ReceiptProposalAction extends Component {
       return;
     }
     this.dragged = {value_id: card.value_id, voucher_id: card.voucher_id};
+    this.startAutoScroll();
     ev.dataTransfer.effectAllowed = "move";
     ev.dataTransfer.setData("text/plain", String(card.value_id));
   }
@@ -475,6 +514,7 @@ export class ReceiptProposalAction extends Component {
       return;
     }
     this.dragged = {voucher_id: item.voucher_id};
+    this.startAutoScroll();
     ev.dataTransfer.effectAllowed = "move";
     ev.dataTransfer.setData("text/plain", `v${item.voucher_id}`);
   }
@@ -482,6 +522,76 @@ export class ReceiptProposalAction extends Component {
   onDragEnd() {
     this.dragged = null;
     this.state.dropTarget = null;
+    this.stopAutoScroll();
+  }
+
+  /* Mientras dura un arrastre el tablero se desplaza solo cuando el puntero
+     entra en la franja de borde de un contenedor scrolleable — hacia abajo al
+     pie de la pantalla, hacia arriba en la cabecera, y lo mismo a los lados.
+     El puntero se lee en `dragover` en CAPTURA: las zonas de drop paran la
+     propagación en burbuja, y la captura corre antes que ellas, así que el
+     seguimiento no depende de sobre qué elemento esté pasando el valor. El
+     desplazamiento en sí va en su propio `requestAnimationFrame`, porque
+     `dragover` se dispara a ritmo del mouse y deja de dispararse en cuanto el
+     puntero se queda quieto contra el borde, que es justo cuando el operador
+     está esperando que la lista siga corriendo. */
+  startAutoScroll() {
+    if (this.dragScrollListener) {
+      return;
+    }
+    this.dragScrollListener = (ev) => {
+      this.dragPointer = {x: ev.clientX, y: ev.clientY};
+    };
+    document.addEventListener("dragover", this.dragScrollListener, true);
+    this.dragScrollFrame = window.requestAnimationFrame(() => this.autoScrollFrame());
+  }
+
+  stopAutoScroll() {
+    if (this.dragScrollListener) {
+      document.removeEventListener("dragover", this.dragScrollListener, true);
+      this.dragScrollListener = null;
+    }
+    if (this.dragScrollFrame) {
+      window.cancelAnimationFrame(this.dragScrollFrame);
+      this.dragScrollFrame = null;
+    }
+    this.dragPointer = null;
+  }
+
+  autoScrollFrame() {
+    this.dragScrollFrame = null;
+    if (!this.dragScrollListener) {
+      return;
+    }
+    if (this.dragPointer) {
+      this.autoScrollAt(this.dragPointer.x, this.dragPointer.y);
+    }
+    this.dragScrollFrame = window.requestAnimationFrame(() => this.autoScrollFrame());
+  }
+
+  /* El que se desplaza es el contenedor scrolleable más cercano al puntero que
+     TODAVÍA tenga recorrido en el sentido pedido: el carril de clientes y el
+     pool scrollean vertical, el tablero horizontal, y un carril que ya tocó
+     fondo le cede el gesto al tablero en vez de tragárselo. Por eso se sube por
+     los ancestros hasta que uno se mueva de verdad. */
+  autoScrollAt(x, y) {
+    let node = document.elementFromPoint(x, y);
+    while (node && node !== document.body) {
+      const step = autoscrollDelta(node.getBoundingClientRect(), x, y);
+      const style = window.getComputedStyle(node);
+      const top = node.scrollTop;
+      const left = node.scrollLeft;
+      if (step.y && SCROLLABLE_OVERFLOW.has(style.overflowY)) {
+        node.scrollTop = top + step.y;
+      }
+      if (step.x && SCROLLABLE_OVERFLOW.has(style.overflowX)) {
+        node.scrollLeft = left + step.x;
+      }
+      if (node.scrollTop !== top || node.scrollLeft !== left) {
+        return;
+      }
+      node = node.parentElement;
+    }
   }
 
   /* A drop zone is the pool column or one (customer, circuit) card: dropping
@@ -523,6 +633,7 @@ export class ReceiptProposalAction extends Component {
     const dragged = this.dragged;
     this.dragged = null;
     this.state.dropTarget = null;
+    this.stopAutoScroll();
     if (!dragged) {
       return;
     }
@@ -599,7 +710,7 @@ export class ReceiptProposalAction extends Component {
       to_allocation_id: toAllocationId,
       kind: toAllocationId ? kind || "" : "",
       amount: maximum,
-      raw_amount: String(maximum),
+      raw_amount: rawAmount(maximum),
       maximum,
       unify: true,
       preview: [],
@@ -683,6 +794,63 @@ export class ReceiptProposalAction extends Component {
     return column ? column.partner_name : "";
   }
 
+  /* Las cifras del circuito que el gesto eligió. El modal tapa la tarjeta que
+     las traía, y partir un valor es exactamente la pregunta "¿cuánto falta
+     acá?": sin esta línea el operador tenía que cerrar el modal, leer la
+     tarjeta y volver a arrastrar. Se lee, no se toca — como el `tstrip`.
+     Un lado que no es un circuito (el pool) no aporta grupo: no tiene deuda. */
+  get transferFigureGroups() {
+    const modal = this.state.modal;
+    const groups = [];
+    const source = this.circuitFiguresOf(modal.source_allocation_id, modal.source_kind);
+    if (source) {
+      groups.push({
+        key: "source",
+        label: _t("Origen"),
+        figures: source,
+        gap: circuitGap(source, this.currency),
+      });
+    }
+    const target = this.circuitFiguresOf(modal.to_allocation_id, modal.kind);
+    if (target) {
+      groups.push({
+        key: "target",
+        label: _t("Destino"),
+        figures: target,
+        gap: circuitGap(target, this.currency),
+      });
+    }
+    return groups;
+  }
+
+  circuitFiguresOf(allocationId, kind) {
+    if (!allocationId || !kind) {
+      return null;
+    }
+    const column = this.columnById(allocationId);
+    return column ? column.circuits[kind] || null : null;
+  }
+
+  /* El faltante del destino, y sólo cuando nombra un importe que los otros
+     atajos no dan: si falta más que el máximo, `Todo` ya es esa respuesta, y
+     si no falta nada el botón no tendría qué cubrir. */
+  get transferGapQuick() {
+    const modal = this.state.modal;
+    const figures = this.circuitFiguresOf(modal.to_allocation_id, modal.kind);
+    const gap = circuitGap(figures, this.currency);
+    return gap > 0 && gap < modal.maximum - AMOUNT_EPSILON ? gap : 0;
+  }
+
+  get transferGapQuickLabel() {
+    return _t("Cubrir %s", this.fmt(this.transferGapQuick));
+  }
+
+  setTransferGap() {
+    const modal = this.state.modal;
+    modal.raw_amount = rawAmount(this.transferGapQuick);
+    this.syncTransfer();
+  }
+
   get transferIsNoop() {
     const modal = this.state.modal;
     return (
@@ -711,7 +879,7 @@ export class ReceiptProposalAction extends Component {
 
   setTransferQuick(ratio) {
     const modal = this.state.modal;
-    modal.raw_amount = String(Math.round(modal.maximum * ratio));
+    modal.raw_amount = rawAmount(roundAmount(modal.maximum * ratio, this.currency));
     this.syncTransfer();
   }
 
@@ -901,6 +1069,48 @@ export class ReceiptProposalAction extends Component {
   }
 
   // ----------------------------------------------------------------
+  // Reset: every assignable card back to Sin asignar
+  // ----------------------------------------------------------------
+
+  /* El resumen sale del payload que el tablero ya tiene — reiniciar no
+     necesita una previsualización FIFO porque su resultado no depende de
+     ninguna: todo circuito queda en cero. */
+  get resetSummary() {
+    return resetSummary(this.state.board);
+  }
+
+  /* Un cliente cerrado está congelado, y el servidor rechaza el reinicio
+     entero antes que dejar el pool sin lo que el botón prometió. El tablero
+     lo dice antes de pedir la confirmación, con los nombres a reabrir. */
+  get resetBlockers() {
+    return resetBlockers(this.state.board);
+  }
+
+  get canReset() {
+    return this.editable && this.resetSummary.cards > 0;
+  }
+
+  openReset() {
+    this.closeMenu();
+    if (!this.canReset) {
+      return;
+    }
+    this.state.modal = {type: "reset"};
+  }
+
+  async confirmReset() {
+    const done = await this.runMutation(
+      () =>
+        this.orm.call(BOARD_MODEL, "action_proposal_reset_vouchers", [this.sheetId]),
+      _t("Comprobantes devueltos a Sin asignar.")
+    );
+    if (done) {
+      this.state.isolate = null;
+      this.closeModal();
+    }
+  }
+
+  // ----------------------------------------------------------------
   // The expanded circuit: one circuit of one customer, with its imputation
   // ----------------------------------------------------------------
 
@@ -985,7 +1195,7 @@ export class ReceiptProposalAction extends Component {
       amount: row.amount,
       balance: row.balance,
       applied: row.applied,
-      raw: String(row.applied),
+      raw: rawAmount(row.applied),
     }));
   }
 
@@ -1036,12 +1246,12 @@ export class ReceiptProposalAction extends Component {
   }
 
   imputeRowIsOver(row) {
-    return this.imputeRowAmount(row) > row.balance + 0.001;
+    return this.imputeRowAmount(row) > row.balance + AMOUNT_EPSILON;
   }
 
   imputeIsOver(detail) {
     return (
-      this.imputeAvailable(detail) < -0.001 ||
+      this.imputeAvailable(detail) < -AMOUNT_EPSILON ||
       this.imputeRows(detail).some((row) => this.imputeRowIsOver(row))
     );
   }
@@ -1056,9 +1266,14 @@ export class ReceiptProposalAction extends Component {
       const changes = new Map(
         (preview.changes || []).map((change) => [change.line_id, change.to])
       );
+      /* `confirmImpute` posts `row.applied`, and repintar el input no dispara
+         ningún evento `input`: si sólo escribiéramos `raw`, la grilla mostraría
+         el reparto nuevo y el servidor recibiría el viejo. */
       for (const row of detail.rows) {
         if (changes.has(row.line_id)) {
-          row.raw = String(changes.get(row.line_id));
+          const applied = changes.get(row.line_id);
+          row.applied = applied;
+          row.raw = rawAmount(applied);
         }
       }
       this.notification.add(_t("Cobrado distribuido desde la deuda más antigua."), {
@@ -1109,20 +1324,20 @@ export class ReceiptProposalAction extends Component {
     for (const kind of CIRCUIT_KEYS) {
       const figures = column.circuits[kind];
       const circuit = CIRCUITS[kind];
-      if (figures.available > 0.001) {
+      if (figures.available > AMOUNT_EPSILON) {
         rows.push({
           label: _t("Cobrado a %s sin imputar", circuit.noun),
           amount: figures.available,
           tone: "fav",
         });
-      } else if (figures.available < -0.001) {
+      } else if (figures.available < -AMOUNT_EPSILON) {
         rows.push({
           label: _t("Imputado a %s por encima del cobro", circuit.noun),
           amount: -figures.available,
           tone: "neg",
         });
       }
-      if (figures.pending > 0.001) {
+      if (figures.pending > AMOUNT_EPSILON) {
         rows.push({
           label:
             kind === "invoice"
@@ -1203,24 +1418,11 @@ export class ReceiptProposalAction extends Component {
   }
 
   drawerTotals(column) {
-    let collected = 0;
-    let debt = 0;
-    for (const kind of CIRCUIT_KEYS) {
-      const figures = column.circuits[kind];
-      collected += figures.collected;
-      debt += figures.total;
-    }
-    let ratio = 0;
-    if (debt > 0) {
-      ratio = (collected / debt) * 100;
-    } else if (collected > 0) {
-      ratio = 100;
-    }
+    const totals = columnTotals(column, CIRCUIT_KEYS);
     return {
-      collected,
-      debt,
-      percent: Math.round(ratio),
-      fill: Math.min(Math.max(ratio, 0), 100),
+      collected: totals.collected,
+      debt: totals.total,
+      ...coverageOf(totals.collected, totals.total),
     };
   }
 

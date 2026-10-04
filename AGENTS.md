@@ -210,20 +210,72 @@ Ground truth order: source under this directory → `../collection/AGENTS.md` �
   board that is finished, which is the one case the header is read on. The pool column
   keeps its taller head: it carries the chip and the drag hint, and its cards are not
   what the operator scans.
-- **Colour means circuit; shape means payment type.** `--c` / `--c-tint` paint every
-  card's rail and tint from `document_kind`, and that is the distinction which
-  constrains imputation, so the eight `collection.voucher.document_type` codes get the
-  **shape** channel instead: a `.pay-glyph` chip rendered by
-  `collection_receipt_proposal.TypeGlyph`, one inline SVG per code with `unsupported` as
-  the `t-else` fallback. The chip is deliberately monochrome and engraved in the `.tag`
-  family (`--clay-deep` + `--inset-sm` + `--ink-2`) — a second colour system would take
-  the circuit's channel away. It rides **inside** `.pay-method`, which is already an
-  18px `inline-flex` line on both card shapes, so the glyph costs the lane no height
-  (see the density rule above), and it carries `aria-hidden` because the method label is
-  written right beside it. Both payloads therefore ship the raw `document_type` code
-  alongside the translated `method` label: the label is translatable and cannot be keyed
-  on. `tests/test_receipt_proposal_ui.py` pins the branch order, the monochrome tokens
-  and the two call sites; `tests/test_receipt_proposal_board.py` pins the payload key.
+- **A value card is coloured by its payment type; a circuit card is coloured by its
+  circuit. Two colour systems, two sets of tokens, and neither writes the other's.**
+  `--c` / `--c-ink` / `--c-soft` / `--c-tint` are the circuit's, assigned by `.c-inv` /
+  `.c-quo` / `.c-none`, and they dress what a circuit owns: the `.rp-circ` card, its
+  `.ct` pill, its drop zones, the `tstrip` and the previews. `--g` / `--g-ink` /
+  `--g-soft` / `--g-tint` are the payment type's, assigned by `.t-<code>`, and they
+  dress what a **comprobante** owns: the pool's `article.rp-card` and the lane's
+  `.rp-vrow`, **whole** — rail (`--g`), wash (`--g-tint`) and, by inheritance, the
+  `.pay-glyph` chip (`--g-soft` + `--g-ink`, which is why the chip picks no class of its
+  own and falls back to the house greys). A `.c-*` rule MUST NOT declare a `--g*` and a
+  `.t-*` MUST NOT declare a `--c*`; borrowing by value (`.t-unsupported` reading
+  `--ink-3`, the way `.c-none` does) is fine. Neither reading is lost by this split: a
+  pool card has **no circuit at all** — its old `c-none` painted grey on grey — and an
+  assigned row is already inside the circuit card that names FAC / PRE with its pill and
+  its own tint, so the row's colour used to spend itself restating what its container
+  had just said. What a row cannot say on its own is which comprobante it is, and that
+  is what it now says. `typeClass(document_type)` is the only builder of that class and
+  it goes through `glyphOf`, so a class can never name a rule the SCSS does not have;
+  there is no `cardClass` any more.
+- **The payment type is read by shape FIRST and by hue second.** The `.pay-glyph` chip
+  rendered by `collection_receipt_proposal.TypeGlyph` keeps one inline SVG per code with
+  `unsupported` as the `t-else` fallback, and that branch set MUST stay complete: shape
+  is what survives a colour-blind operator, a greyscale print and a 150px card. The
+  translated method label is written right beside it, so hue is always reinforcement and
+  never the only carrier. The palette is constrained so that the second colour system
+  cannot be mistaken for the first: **seven hues spread around the wheel, each at least
+  20° off `--fac` (246°), off `--pre` (189°) and off every other type**, each `-ink` at
+  ≥ 4.5:1 on its own `-soft` — that ink paints a 1.4px stroke, the thinnest mark the
+  board draws — and each `-tint` built as `rgba()` of **its own** base at `0.11`, the
+  alpha the circuit tints already use, so a wash can never drift onto a neighbour's hue.
+  `unsupported` deliberately has no hue: `.t-unsupported` is the neutral twin of
+  `.c-none`, because a type the catalogue cannot name has not earned a colour in the
+  key. The chip stays engraved (`--inset-sm`) and rides **inside** `.pay-method`, which
+  is already an 18px `inline-flex` line on both card shapes, so the glyph costs the lane
+  no height (see the density rule above), and it carries `aria-hidden` because the
+  method label is written right beside it. Both payloads therefore ship the raw
+  `document_type` code alongside the translated `method` label: the label is
+  translatable and cannot be keyed on. `tests/test_receipt_proposal_ui.py` pins the
+  branch order, both cards' class, the token ownership of each system, the contrast
+  floor, the hue spread and the tint's provenance;
+  `tests/test_receipt_proposal_board.py` pins the payload key.
+
+- **A circuit card looks the same on every customer, and its frame is what says so.**
+  Facturas and Presupuestos are read by **comparing customers** — the same circuit down
+  the lane — so `.rp-circ` is framed with a 1px border in `var(--c-line, var(--edge))`,
+  and `--c-line` (`--fac-line` / `--pre-line`, the circuit hue at `0.45`) is set by the
+  circuit classes and by nothing else. What differs from customer to customer is the
+  voucher rows inside, which are coloured by payment type; the frame is what says that a
+  card full of cheques and a card full of transfers are still the same Facturas. **No
+  property of a circuit card may be keyed on its contents** — not the border, not the
+  wash, not a `--g*`. `.rp-circ.empty` keeps that same frame and only breaks it into
+  dashes (`border-style: dashed`): the strip **is** the invitation to drop, which is
+  what a dashed edge already says, and the grey `outline` it used to draw on top of the
+  border said it twice in a colour the circuit does not own — it is gone, one mechanism
+  does both jobs.
+- **A customer card closes itself off with a hard edge, not with a shadow.** `.rp-cust`
+  carries `border: 1px solid var(--edge)` — the house's own shadow colour raised to an
+  alpha that reads as a line — plus the `--raise-sm` it already had. The card is tall
+  (header, two circuit cards, more when one is expanded), so where one customer ends and
+  the next begins has to be visible without counting rows, and the shadow could not do
+  it alone: it is diffuse and lands on the lane body's `--clay-deep`, which is nearly
+  the card's own `--clay`. The edge closes the card and the shadow only lifts it. It
+  costs **no height** — the action is `box-sizing: border-box` throughout — and the one
+  gap that separates a customer from the next, `.rp-lane-body`'s, is `8px` so that edge
+  has room to read. That gap is still the first place to take height back from if the
+  lane ever needs it (see the density rule above); the border is not.
 - **The filter bar is a view over the payload, and it is paid once per board.**
   `state.filters` holds four controls — customer search (`partner_name` + `partner_vat`,
   case folded and diacritics stripped, so `nunez` finds `Núñez`), circuit FAC/PRE, pool
@@ -266,6 +318,19 @@ Ground truth order: source under this directory → `../collection/AGENTS.md` �
   — an in-place `sort()` would rewrite the order `name`, the default, exists to restore.
   `debt` / `collected` / `pending` order descending on the sum over the **visible**
   circuits of `total` / `collected` / `available`.
+- **A circuit card's voucher rows are ordered by payment type, and by nothing else.**
+  Every row inside a Facturas card is `document_kind == "invoice"` by construction — the
+  circuit _is_ the card — so the only kind that varies row to row is the voucher's own
+  `document_type`, which is what the operator has in hand while reconciling: the cheques
+  together, the transferencias together. `sortCardsByType` keys on the translated
+  `method` label, the same key `methodOptions` sorts the method select by, so the card
+  and the filter name the types in one order; the raw code is an arbitrary catalogue
+  order (`DOCUMENT_TYPE_SELECTION`) and orders nothing a reader recognises. Like
+  `sortColumns` it sorts a **copy** — `column.cards` is the server's answer and the
+  board is re-read against it on every refresh — and on **one** criterion only, so JS's
+  stable sort preserves the payload's `value_id` order inside a type and a row the
+  operator did not touch never moves on a refresh. `circuitCards` is the single place it
+  is applied, so the count, the rows and `hasValues` can never disagree.
 - **A circuit card MUST render even when empty**, collapsed to a strip by
   `.rp-circ.empty`: it is the drop target that creates that circuit's first receipt
   value, so hiding it would make the circuit unreachable. `hasCircuit` decides the
@@ -281,6 +346,21 @@ Ground truth order: source under this directory → `../collection/AGENTS.md` �
   therefore highlight independently, and dropping a value back onto the circuit it
   already sits in is ignored in `onZoneDrop` rather than opening a modal whose only live
   button is Cancelar — `transferIsNoop` stays as the guard behind it.
+- **A drag scrolls the board itself — HTML5 drag and drop scrolls nothing.** While a
+  value is in the air the pointer is tracked in a **capture-phase** `dragover` on
+  `document` (the drop zones stop propagation on the way up, so a bubbling listener
+  would go deaf exactly over the cards) and the scrolling runs on its own
+  `requestAnimationFrame`: `dragover` stops firing the moment the pointer holds still
+  against an edge, which is when the operator is waiting for the list to keep running.
+  `autoscrollDelta` is pure geometry over a rect — one signed step per axis, so the foot
+  of the screen scrolls down and the header scrolls up out of the same calculation, with
+  the band capped at half the axis and a pointer outside the container counted as pinned
+  to its edge. The element that moves is the nearest ancestor under the pointer whose
+  computed `overflow` on that axis is `auto` or `scroll` and that **actually moves**:
+  the board is full of `overflow: hidden` cards that still accept a written `scrollTop`,
+  and a lane that has hit bottom must hand the gesture to the board instead of eating
+  it. Every end of a drag — `dragend`, a drop, unmount — tears the listener and the
+  frame down. `tests/test_receipt_proposal_ui.py` pins all three.
 - **The expanded circuit's imputation grid is rebuilt from the payload, never merged.**
   `syncDetail` runs on every `applyBoard`, because every mutation redistributes the
   circuit by FIFO and the server is the only truth for the result. A row carries both
