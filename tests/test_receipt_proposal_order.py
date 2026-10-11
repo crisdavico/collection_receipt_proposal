@@ -60,7 +60,11 @@ class TestReceiptProposalOrder(ReceiptProposalCommon, TransactionCase):
                 amount_applied=50.0,
             ),
         ]
-        allocation = self._create_allocation(sheet, partner, lines=lines)
+        # The voucher funds the allocation: Confirm refuses an allocation that
+        # applies more than its vouchers collected (250 of 500 here).
+        allocation = self._create_allocation(
+            sheet, partner, vouchers=voucher, lines=lines
+        )
         self._confirm(sheet)
         return allocation, voucher, sheet
 
@@ -123,7 +127,9 @@ class TestReceiptProposalOrder(ReceiptProposalCommon, TransactionCase):
                 amount_applied=50.0,
             ),
         ]
-        allocation = self._create_allocation(sheet, partner, lines=lines)
+        allocation = self._create_allocation(
+            sheet, partner, vouchers=voucher, lines=lines
+        )
         self._confirm(sheet)
         receipt = self._create_receipt(allocation, "invoice")
         self._create_value(receipt, voucher, 100.0)

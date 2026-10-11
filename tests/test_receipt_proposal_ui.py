@@ -301,28 +301,38 @@ class TestReceiptProposalUi(TransactionCase):
                 self.assertTrue(
                     name.startswith("--c"), f"{circuit} sets {name}, not its own token"
                 )
-        # The circuit still owns everything a circuit is: the card, its pill,
-        # its drop zones, the previews. Only the value cards changed hands.
+        # The circuit card is not one of the `.c-*` owners: its frame and wash
+        # are the house's, the same on both circuits. The one place the board
+        # says Facturas or Presupuestos in colour is the `.ct` pill, which
+        # keys its fill on the circuit and on nothing else.
         for owner in (".rp-circ.inv,", ".rp-circ.quo,"):
-            self.assertIn(owner, scss)
+            self.assertNotIn(owner, scss)
+        pill = scss.split("\n  .ct {", 1)[1].split("\n  }", 1)[0]
+        self.assertIn("background: var(--ct-bg, var(--ink-3));", pill)
+        for kind, token in (("inv", "--fac-ink"), ("quo", "--pre-ink")):
+            fill = pill.split(f"&.{kind} {{", 1)[1].split("}", 1)[0]
+            self.assertIn(f"--ct-bg: var({token});", fill)
+        self.assertNotIn("--g", pill)
 
     def test_a_circuit_card_is_framed_the_same_on_every_customer(self):
-        """RED/GREEN: `.rp-circ` is framed by `--c-line`, which only FAC / PRE set.
+        """RED/GREEN: `.rp-circ` wears the house frame and wash, on both circuits.
 
         Facturas and Presupuestos are read by comparing customers -- the same
         circuit down the lane -- so the circuit card has to look the same on
         all of them. What differs inside is the voucher rows, which are
-        coloured by payment type, and the frame is what says that a card full
-        of cheques and a card full of transfers are still the same Facturas.
-        So the border colour may only ever come from the circuit's own token.
+        coloured by payment type. A frame and a wash tinted by the circuit put
+        a second colour system on the whole surface of every card, competing
+        with the payment types inside it, so both are the house's own and the
+        `.ct` pill is what names the circuit.
         """
         scss = self._asset("receipt_proposal_action.scss")
         circuit = scss.split("\n  .rp-circ {", 1)[1].split("\n  }", 1)[0]
-        self.assertIn("border: 1px solid var(--c-line, var(--edge));", circuit)
-        wash = "linear-gradient(var(--c-tint), var(--c-tint)), var(--clay-deep)"
-        self.assertIn(f"background: {wash}", circuit)
-        # Nothing about a card's contents may reach its frame or its wash.
+        self.assertIn("border: 1px solid var(--edge);", circuit)
+        self.assertIn("background: var(--clay-deep);", circuit)
+        # Neither colour system may reach the card's frame or its wash: not the
+        # payment type's `--g*`, and not the circuit's `--c*` either.
         self.assertNotIn("--g", circuit)
+        self.assertNotRegex(circuit, r"var\(--c(?:-[\w-]+)?[,)]")
         for selector, token in ((".c-inv,", "--fac-line"), (".c-quo,", "--pre-line")):
             rule = scss.split(f"\n  {selector}", 1)[1].split("\n  }", 1)[0]
             self.assertIn(f"--c-line: var({token});", rule)
