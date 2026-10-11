@@ -12,6 +12,7 @@ from odoo.addons.collection.report.collection_sheet_xlsx import (
     MONEY,
     NAVY,
     NAVY_DARK,
+    WORKBOOK_OPTIONS,
     _a1,
     _abs_range,
     _date_cell,
@@ -863,9 +864,13 @@ def _page_setup(
 
 
 def _build_xlsx(payload):
-    """Render the Asignaciones workbook from payload primitives. No ORM access."""
+    """Render the Asignaciones workbook from payload primitives. No ORM access.
+
+    Uses the Planilla's workbook options, so board notes, names and numbers
+    are written as text and never become live formulas or hyperlinks.
+    """
     output = BytesIO()
-    workbook = xlsxwriter.Workbook(output, {"in_memory": True})
+    workbook = xlsxwriter.Workbook(output, {"in_memory": True, **WORKBOOK_OPTIONS})
     try:
         fmt = _formats_with_extras(workbook)
         summary = workbook.add_worksheet(SUMMARY_SHEET)
