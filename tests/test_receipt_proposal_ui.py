@@ -114,11 +114,24 @@ class TestReceiptProposalUi(TransactionCase):
             self.assertIn(method, source, f"{method} must be reachable from the board")
 
     def test_helpers_stay_free_of_odoo_imports_beyond_translation(self):
-        """RED/GREEN: the helpers file imports only `_t`."""
+        """RED/GREEN: the helpers import only `_t` and the pure amount parser.
+
+        The parser takes the user's separators as arguments, so neither module
+        reads a service: the component passes Odoo's `localization`. The
+        parser itself imports nothing, which is what lets plain Node load it
+        (`tests/amount_parser_test.js`).
+        """
         source = self._asset("receipt_proposal_helpers.esm.js")
-        imports = [line for line in source.splitlines() if line.startswith("import ")]
-        self.assertEqual(len(imports), 1)
-        self.assertIn("@web/core/l10n/translation", imports[0])
+        modules = re.findall(r'^import\s*\{[^}]*\}\s*from\s*"([^"]+)";', source, re.M)
+        self.assertEqual(
+            sorted(modules),
+            [
+                "@collection_receipt_proposal/receipt_proposal/amount_parser.esm",
+                "@web/core/l10n/translation",
+            ],
+        )
+        parser = self._asset("amount_parser.esm.js")
+        self.assertNotRegex(parser, r"(?m)^\s*import\b")
 
     def test_helpers_export_the_documented_surface(self):
         """RED/GREEN: the pure helper surface the component relies on."""
@@ -136,9 +149,12 @@ class TestReceiptProposalUi(TransactionCase):
             "export function resetSummary",
             "export function resetBlockers",
             "export function circuitGap",
-            "export function rawAmount",
+            "export {parseAmount, rawAmount};",
         ):
             self.assertIn(symbol, source, f"{symbol} must be exported")
+        parser = self._asset("amount_parser.esm.js")
+        self.assertIn("export function parseAmount(raw, separators)", parser)
+        self.assertIn("export function rawAmount(value, separators)", parser)
 
     def test_helpers_implement_the_documented_pure_logic(self):
         """RED/GREEN: helper bodies stay regex-asserted; only `_t` for copy."""
@@ -925,13 +941,14 @@ class TestReceiptProposalUi(TransactionCase):
     def test_imputation_row_keeps_the_typed_text_and_the_parsed_amount(self):
         """RED/GREEN: `raw` is what was typed, `applied` the parsed figure.
 
-        `parseAmount` drops "." as a thousands mark, so a seed written with
-        `String(row.applied)` read 1000.5 back as 10005 -- which is what
-        `rawAmount` exists to prevent. Every seed goes through it; only user
-        input refreshes the parsed amount.
+        A seed written with `String(row.applied)` would always carry a `.`,
+        which an es_AR board reads as a thousands mark when three digits
+        follow it. `rawAmount` writes the user's own decimal point instead, so
+        every seed goes through it; only user input refreshes the parsed
+        amount.
         """
         source = self._asset("receipt_proposal_action.esm.js")
-        self.assertIn("raw: rawAmount(row.applied)", source)
+        self.assertIn("raw: rawAmount(row.applied, localization)", source)
         self.assertNotIn("String(row.applied)", source)
         self.assertIn("row.raw = ev.target.value", source)
         self.assertIn("row.applied = Number.isFinite(parsed) && parsed > 0", source)
@@ -1186,21 +1203,52 @@ class TestReceiptProposalUi(TransactionCase):
         self.assertEqual(button[0].get("t-on-click"), "setTransferGap")
 
     def test_the_amount_seed_survives_a_decimal(self):
-        """RED/GREEN: `parseAmount` reads `.` as a thousands mark.
+        """RED/GREEN: a seed is written in the user's decimal point.
 
-        Seeding the input with `String(1000.5)` came back as 10005, so the
-        modal opened over its own maximum with the confirm button dead. The
-        seed is written the way the operator types it.
+        Seeding the input with `String(1000.5)` once came back as 10005, so
+        the modal opened over its own maximum with the confirm button dead.
+        The seed carries the locale's decimal point and no thousands mark, so
+        `parseAmount` reads it back as the same number in every locale (the
+        round trips run in `tests/amount_parser_test.js`).
         """
-        helpers = self._asset("receipt_proposal_helpers.esm.js")
-        body = helpers.split("export function rawAmount(value) {", 1)[1].split(
-            "\n}", 1
-        )[0]
-        self.assertIn('String(amount).replace(".", ",")', body)
+        parser = self._asset("amount_parser.esm.js")
+        body = parser.split("export function rawAmount(value, separators) {", 1)[
+            1
+        ].split("\n}", 1)[0]
+        self.assertIn(".replace(DOT, decimalPoint)", body)
         source = self._asset("receipt_proposal_action.esm.js")
-        self.assertIn("raw_amount: rawAmount(maximum)", source)
-        self.assertIn("modal.raw_amount = rawAmount(this.transferGapQuick)", source)
+        self.assertIn("raw_amount: rawAmount(maximum, localization)", source)
+        self.assertIn(
+            "modal.raw_amount = rawAmount(this.transferGapQuick, localization)",
+            source,
+        )
         self.assertNotIn("raw_amount: String(maximum)", source)
+
+    def test_every_typed_amount_is_read_in_the_user_locale(self):
+        """RED/GREEN: the component hands Odoo's separators to every read.
+
+        A call without them falls back to `.` as the decimal point, which on
+        an es_AR board would read `1.234` as 1.234 instead of 1234.
+        """
+        source = self._asset("receipt_proposal_action.esm.js")
+        self.assertIn(
+            'import {localization} from "@web/core/l10n/localization";', source
+        )
+        calls = []
+        for match in re.finditer(
+            r"\b(parseAmount|rawAmount|validateTransferAmount)\(", source
+        ):
+            depth, end = 1, match.end()
+            while depth:
+                depth += {"(": 1, ")": -1}.get(source[end], 0)
+                end += 1
+            calls.append((match.group(1), source[match.end() : end - 1]))
+        self.assertGreaterEqual(len(calls), 7)
+        for name, arguments in calls:
+            last = arguments.strip().rstrip(",").rsplit(",", 1)[-1].strip()
+            self.assertEqual(
+                last, "localization", f"{name}({arguments.strip()}) must pass it"
+            )
 
     def test_preview_lines_keep_the_space_before_the_dash(self):
         """RED/GREEN: `Luciana Morelli — sin cambios.`, never `Morelli—`.
@@ -1635,9 +1683,16 @@ class TestReceiptProposalUi(TransactionCase):
             "export function methodOptions",
         ):
             self.assertIn(symbol, source, f"{symbol} must be exported")
-        imports = [line for line in source.splitlines() if line.startswith("import ")]
-        self.assertEqual(len(imports), 1)
-        self.assertIn("@web/core/l10n/translation", imports[0])
+        # Translation plus the board's own import-free amount parser; no
+        # service, no OWL.
+        modules = re.findall(r'^import\s*\{[^}]*\}\s*from\s*"([^"]+)";', source, re.M)
+        self.assertEqual(
+            sorted(modules),
+            [
+                "@collection_receipt_proposal/receipt_proposal/amount_parser.esm",
+                "@web/core/l10n/translation",
+            ],
+        )
         self.assertNotIn("useService", source)
         self.assertNotIn("@odoo/owl", source)
 

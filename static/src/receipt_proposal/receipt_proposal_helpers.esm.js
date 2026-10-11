@@ -1,6 +1,14 @@
 /** @odoo-module **/
 
+import {
+  parseAmount,
+  rawAmount,
+} from "@collection_receipt_proposal/receipt_proposal/amount_parser.esm";
 import {_t} from "@web/core/l10n/translation";
+
+/* Typed amounts are read by the user's locale; the pure parser lives in its
+   own import-free module so plain Node can test it. */
+export {parseAmount, rawAmount};
 
 export const BOARD_MODEL = "collection.sheet";
 export const PREVIEW_DEBOUNCE_MS = 250;
@@ -251,17 +259,6 @@ export function formatShortDate(value) {
   return iso ? `${iso[3]}/${iso[2]}/${iso[1].slice(2)}` : text;
 }
 
-export function parseAmount(raw) {
-  if (typeof raw === "number") {
-    return Number.isFinite(raw) ? raw : NaN;
-  }
-  const text = String(raw === undefined || raw === null ? "" : raw).trim();
-  if (!text) {
-    return NaN;
-  }
-  return Number(text.replace(/\./gu, "").replace(",", "."));
-}
-
 export function cardsOfVoucher(board, voucherId) {
   const parts = [];
   for (const column of (board && board.columns) || []) {
@@ -350,15 +347,6 @@ export function eventBullet(eventType) {
   return EVENT_BULLETS[eventType] || "";
 }
 
-/* El input de importe se vuelve a leer con `parseAmount`, que descarta el `.`
-   como separador de miles: sembrarlo con `String(1000.5)` lo devolvería como
-   10005. La semilla se escribe entonces en la notación que el operador teclea
-   — coma decimal, sin separador de miles. */
-export function rawAmount(value) {
-  const amount = splitAmount(value);
-  return String(amount).replace(".", ",");
-}
-
 /* Redondea a los decimales de la moneda. La aritmética de flotantes deja
    restos que cualquier atajo sembraría en el input tal cual, y `Math.round`
    no sirve: truncaría los centavos que el operador sí tiene que ver. */
@@ -383,8 +371,10 @@ export function circuitGap(figures, currency) {
   );
 }
 
-export function validateTransferAmount(raw, maximum) {
-  const amount = parseAmount(raw);
+/* `separators` are the user's `localization` decimal point and thousands
+   separator: the component passes them, the helpers never read a service. */
+export function validateTransferAmount(raw, maximum, separators) {
+  const amount = parseAmount(raw, separators);
   if (!Number.isFinite(amount) || amount <= 0) {
     return {valid: false, amount: 0, error: _t("El importe debe ser mayor que cero.")};
   }
