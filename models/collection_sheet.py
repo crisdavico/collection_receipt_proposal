@@ -14,6 +14,10 @@ _PROPOSAL_STATE = "proposal"
 _SELLER_DEPOSIT = "seller_deposit"
 _RETENTION = "retention_certificate"
 _EVENT_LIMIT = 200
+#: Set by the sheet form's Close button (and only there) to ask for the
+#: unfinished-board confirmation. A UX step, not a guard: without it Close
+#: behaves exactly as in `collection`, which raw state writes rely on.
+CLOSE_CONFIRM_KEY = "receipt_proposal_confirm_close"
 
 
 class CollectionSheet(models.Model):
@@ -335,8 +339,7 @@ class CollectionSheet(models.Model):
         self.ensure_one()
         cards = [
             voucher._proposal_pool_payload()
-            for voucher in self.voucher_ids
-            if currency.compare_amounts(voucher.proposal_free_amount, 0.0) > 0
+            for voucher in self._proposal_pool_vouchers(currency)
         ]
         cards.sort(
             key=lambda card: (
@@ -346,6 +349,73 @@ class CollectionSheet(models.Model):
             )
         )
         return cards
+
+    @api.private
+    def _proposal_pool_vouchers(self, currency):
+        """The vouchers the unassigned pool shows: money not on any card yet.
+
+        One predicate for the pool column and the Close confirmation, so the
+        dialog never counts money the operator cannot see on the board.
+        """
+        self.ensure_one()
+        return self.voucher_ids.filtered(
+            lambda voucher: currency.compare_amounts(voucher.proposal_free_amount, 0.0)
+            > 0
+        )
+
+    # ------------------------------------------------------------------
+    # Close: warn about an unfinished board (decision D7, warn only)
+    # ------------------------------------------------------------------
+
+    @api.private
+    def _proposal_close_pending(self):
+        """What the board still has open: pool money and unclosed customers."""
+        self.ensure_one()
+        currency = self._proposal_currency()
+        pool = self._proposal_pool_vouchers(currency)
+        return {
+            "currency": currency,
+            "pool_vouchers": pool,
+            "pool_amount": currency.round(
+                sum(voucher.proposal_free_amount for voucher in pool)
+            ),
+            "open_allocations": self.allocation_ids.filtered(
+                lambda allocation: not allocation.proposal_closed
+            ),
+        }
+
+    def action_close(self):
+        """Close; from the form button, confirm first while the board is open.
+
+        The sheet form's Close button sets `CLOSE_CONFIRM_KEY`. With money
+        still in the unassigned pool or customers not closed on the board, it
+        gets the confirmation dialog instead, after the same role check and
+        the same hard gate Close runs, so the dialog never offers a close that
+        would fail. Without the key -- raw state writes, scripts, other
+        modules -- Close is exactly `collection`'s.
+        """
+        if (
+            self.env.context.get(CLOSE_CONFIRM_KEY)
+            and len(self) == 1
+            and self.state == _PROPOSAL_STATE
+        ):
+            self._check_collection_manager()
+            self._raise_if_allocations_over_applied()
+            pending = self._proposal_close_pending()
+            if pending["pool_vouchers"] or pending["open_allocations"]:
+                wizard = self.env["collection.sheet.close.confirm"].create(
+                    {"sheet_id": self.id}
+                )
+                return {
+                    "type": "ir.actions.act_window",
+                    "name": _("Close Collection Sheet"),
+                    "res_model": wizard._name,
+                    "res_id": wizard.id,
+                    "view_mode": "form",
+                    "views": [(False, "form")],
+                    "target": "new",
+                }
+        return super().action_close()
 
     @api.private
     def _proposal_event_payload(self):
