@@ -127,7 +127,7 @@ class TestReceiptProposalEvents(ReceiptProposalCommon, TransactionCase):
         self.assertEqual(ordered.mapped("name")[:2], ["E2", "E1"])
 
     def test_access_rights_are_read_and_create_only(self):
-        """RED/GREEN: `base.group_user` gets read + create, nothing else."""
+        """RED/GREEN: Collections Users get read + create, nothing else."""
         self._assert_acl(_EVENT_MODEL, (1, 0, 1, 0))
 
     def test_company_rule_is_global_noupdate(self):
@@ -147,8 +147,10 @@ class TestReceiptProposalEvents(ReceiptProposalCommon, TransactionCase):
         self.assertTrue(xmlid.noupdate)
 
     def test_internal_user_reads_and_creates_without_sudo(self):
-        """RED/GREEN: internal users may read and gated-create; unlink ACL deny."""
-        internal = self._create_user("prop_evt_internal", "base.group_user")
+        """RED/GREEN: Collections Users read and gated-create; unlink ACL deny."""
+        internal = self._create_user(
+            "prop_evt_internal", "collection.group_collection_user"
+        )
         Event = self.Event.with_user(internal)
         with self.assertRaises(UserError):
             Event.create(self._event_vals(name="Ungated"))
@@ -168,9 +170,24 @@ class TestReceiptProposalEvents(ReceiptProposalCommon, TransactionCase):
             Event.browse(event.id).unlink()
         self.assertTrue(event.exists())
 
+    def test_plain_internal_user_cannot_read_or_create_events(self):
+        """RED/GREEN: users without the Collections User role get no audit trail."""
+        visible = self._gated_create(name="Operator event")
+        plain = self._create_user("prop_evt_plain", "base.group_user")
+        Event = self.Event.with_user(plain)
+        for operation in ("read", "create"):
+            with self.subTest(operation=operation), self.assertRaises(AccessError):
+                Event.check_access(operation)
+        with self.assertRaises(AccessError):
+            Event.browse(visible.id).read(["name"])
+        with self.assertRaises(AccessError):
+            Event.with_context(**{_EVENT_CONTEXT: True}).create(
+                self._event_vals(name="Plain create")
+            )
+
     def test_other_company_events_hidden(self):
         """RED/GREEN: events outside company_ids MUST NOT be visible."""
-        user = self._create_user("prop_evt_home", "base.group_user")
+        user = self._create_user("prop_evt_home", "collection.group_collection_user")
         self._restrict_user_to_company(user, self.env.company)
         visible = self._gated_create(name="Home event")
 

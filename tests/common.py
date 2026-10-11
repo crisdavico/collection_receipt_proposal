@@ -282,7 +282,9 @@ class ReceiptProposalCommon:
     def _assert_acl(self, model_name, perms):
         acls = self.env["ir.model.access"].search([("model_id.model", "=", model_name)])
         self.assertEqual(len(acls), 1, f"{model_name} must have one ACL row")
-        self.assertEqual(acls.group_id, self.env.ref("base.group_user"))
+        self.assertEqual(
+            acls.group_id, self.env.ref("collection.group_collection_user")
+        )
         self.assertEqual(bool(acls.perm_read), perms[0])
         self.assertEqual(bool(acls.perm_write), perms[1])
         self.assertEqual(bool(acls.perm_create), perms[2])
