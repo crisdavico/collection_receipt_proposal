@@ -171,6 +171,34 @@ class CollectionSheet(models.Model):
         if allocation and allocation.proposal_closed:
             raise UserError(_("This customer is closed on the board. Reopen it first."))
 
+    @api.private
+    def _proposal_ensure_retention_stays(self, voucher, target):
+        """A retention certificate moves only between its customer's circuits.
+
+        It is tax the customer withheld on their own documents, so it is that
+        customer's money by construction: the reset never returns it to the
+        pool, and a drag may not hand it to the pool or to another customer
+        either. Invoices and quotations of the same customer stay open to it.
+        """
+        self.ensure_one()
+        if voucher.document_type != _RETENTION:
+            return
+        if not target:
+            raise UserError(
+                _(
+                    "A retention certificate stays with its customer: it cannot "
+                    "return to the unassigned pool."
+                )
+            )
+        if target.partner_id != voucher.partner_id:
+            raise UserError(
+                _(
+                    "A retention certificate can only move between the circuits "
+                    "of its own customer, %(customer)s.",
+                    customer=voucher.partner_id.display_name or "",
+                )
+            )
+
     # ------------------------------------------------------------------
     # Concurrency: two operators on one board
     # ------------------------------------------------------------------
@@ -465,6 +493,7 @@ class CollectionSheet(models.Model):
             if not source_value:
                 raise UserError(_("A valid customer column is required."))
             kind = False
+        self._proposal_ensure_retention_stays(voucher, target)
         if target and source_allocation == target and source_kind == kind:
             raise UserError(_("This card is already in that circuit."))
         moved = (
@@ -721,6 +750,7 @@ class CollectionSheet(models.Model):
         keep = self._proposal_value(keep_value_id)
         if keep not in values:
             raise UserError(_("A valid board card is required."))
+        self._proposal_ensure_retention_stays(voucher, keep.receipt_id.allocation_id)
         deltas = {}
         for value in values:
             allocation = value.receipt_id.allocation_id
