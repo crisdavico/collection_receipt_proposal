@@ -333,12 +333,16 @@ class CollectionAllocation(models.Model):
             return preview
         Line = self.env["collection.allocation.line"]
         # Group by the value written: lines landing on the same amount go out
-        # as one UPDATE instead of one per document.
-        by_amount = {}
+        # as one UPDATE instead of one per document. Falling documents go
+        # first, so the receipt never shows a transient total above its values
+        # (core refuses a write that raises applications past the values).
+        falling, rising = {}, {}
         for change in preview["changes"]:
-            by_amount.setdefault(change["to"], []).append(change["line_id"])
-        for amount, line_ids in by_amount.items():
-            Line.browse(line_ids).amount_applied = amount
+            groups = rising if change["to"] > change["from"] else falling
+            groups.setdefault(change["to"], []).append(change["line_id"])
+        for groups in (falling, rising):
+            for amount, line_ids in groups.items():
+                Line.browse(line_ids).amount_applied = amount
         self._proposal_log_recompute(document_kind, preview)
         return preview
 
