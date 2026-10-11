@@ -5,7 +5,18 @@ from datetime import date
 
 from odoo.tests import TransactionCase
 
+from odoo.addons.collection.models.collection_common import privileged
+from odoo.addons.collection_receipt_proposal.models.collection_allocation import (
+    PROPOSAL_CLOSE_SCOPE,
+)
+
 from .common import ReceiptProposalCommon
+
+
+def _force_closed(allocation):
+    """Mark the customer closed without the board's note and event rules."""
+    with privileged(PROPOSAL_CLOSE_SCOPE):
+        allocation.proposal_closed = True
 
 
 class TestReceiptProposalFifo(ReceiptProposalCommon, TransactionCase):
@@ -148,7 +159,7 @@ class TestReceiptProposalFifo(ReceiptProposalCommon, TransactionCase):
         self.allocation.line_ids.filtered(
             lambda line: line.invoice_number == "FA-0001"
         ).amount_applied = 10.0
-        self.allocation.proposal_closed = True
+        _force_closed(self.allocation)
         before = self._applied(self.allocation)
         self.assertIsNone(self.allocation._proposal_recompute("invoice"))
         self.assertEqual(self._applied(self.allocation), before)
@@ -188,14 +199,14 @@ class TestReceiptProposalFifo(ReceiptProposalCommon, TransactionCase):
         self._fund(allocation_b, self.scenario["voucher_b"], 80.0)
         allocation_b._proposal_recompute("invoice")
         self.assertEqual(allocation_b.proposal_status, "conciliado")
-        allocation_b.proposal_closed = True
+        _force_closed(allocation_b)
         self.assertEqual(allocation_b.proposal_status, "cerrado")
         self.assertEqual(allocation_b.state, "draft")
 
     def test_cerrado_does_not_reuse_allocation_state(self):
         """RED/GREEN: freeze uses proposal_status cerrado; state stays draft."""
         self.assertEqual(self.allocation.state, "draft")
-        self.allocation.proposal_closed = True
+        _force_closed(self.allocation)
         self.assertEqual(self.allocation.proposal_status, "cerrado")
         self.assertEqual(self.allocation.state, "draft")
         self.assertNotEqual(self.allocation.state, self.allocation.proposal_status)
