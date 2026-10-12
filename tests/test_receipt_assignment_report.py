@@ -6,6 +6,10 @@ from datetime import date
 from odoo.exceptions import UserError
 from odoo.tests import TransactionCase
 
+from odoo.addons.collection.tests.test_collection_payment import (
+    second_active_currency,
+)
+
 from .common import ReceiptProposalCommon
 
 MONEY_KEYS = ("collected", "applied", "on_account", "debt_total", "pending")
@@ -610,13 +614,11 @@ class TestReceiptAssignmentReport(ReceiptProposalCommon, TransactionCase):
             )._receipt_assignment_report_data()
 
     def test_mixed_currencies_refused(self):
-        other = self.env["res.currency"].search(
-            [("id", "!=", self.sheet.company_id.currency_id.id)], limit=1
-        )
-        # Every currency in base data ships `active=False` and `search` honours
-        # `active_test`: with no second active currency `other.id` is False, the
-        # allocation silently takes the default, and this fails as "UserError
-        # not raised" instead of saying what is actually missing.
+        # A fresh database ships one active currency, and `search` honours
+        # `active_test`: without a second active one `other.id` would be False,
+        # the allocation would silently take the default, and this would fail
+        # as "UserError not raised". So activate one for this test.
+        other = second_active_currency(self.env, self.sheet.company_id.currency_id)
         self.assertTrue(other, "need a second active currency for the mismatch")
         self._create_allocation(
             self.sheet, self._partner("PROP-C"), currency_id=other.id

@@ -33,8 +33,8 @@ from ..models.collection_assignment_report import (
 
 SUMMARY_SHEET = "Resumen"
 CUSTOMER_SHEET = "Clientes"
-SUMMARY_SUBTITLE = "Asignaciones de Cobranza"
-CUSTOMER_SUBTITLE = "Asignaciones - Clientes"
+SUMMARY_TITLE = "Asignaciones de Cobranza"
+CUSTOMER_TITLE = "Asignaciones - Clientes"
 SUMMARY_LAST_COL = 9
 CUSTOMER_LAST_COL = 8
 SUMMARY_WIDTHS = (13, 32, 15, 16, 16, 15, 15, 15, 18, 34)
@@ -329,18 +329,20 @@ def _period(payload):
     return date_from or date_to or ""
 
 
-def _write_band(ws, fmt, payload, subtitle, last_col):
-    """Membrete: company, report name, sheet reference and print date."""
-    mid = last_col // 2
-    _merge(ws, 1, 0, mid - 1, payload.get("company") or "", fmt["title"])
-    _merge(ws, 1, mid, last_col, subtitle, fmt["subtitle"])
+def _write_band(ws, fmt, payload, title, last_col):
+    """Membrete: report name and sheet reference, like the Planilla's own.
+
+    Mirrors `collection`'s `_write_membrete`: no company header and no print
+    date, while the payload still carries both. The rows keep their geometry,
+    so everything below the membrete stays where it was.
+    """
+    _merge(ws, 1, 0, last_col, title, fmt["title"])
     ws.set_row(0, 26)
-    _merge(ws, 2, 0, mid - 1, "", fmt["muted"])
-    _merge(ws, 2, mid, last_col, payload.get("reference") or "", fmt["muted_right"])
+    _merge(ws, 2, 0, last_col, payload.get("reference") or "", fmt["muted"])
     ws.set_row(1, 14)
     _merge(ws, 3, 0, last_col, "", fmt["bar"])
     ws.set_row(2, 4)
-    _merge(ws, 4, 0, last_col, _text(payload.get("printed_on")), fmt["muted_right"])
+    _merge(ws, 4, 0, last_col, "", fmt["muted"])
     ws.set_row(3, 14)
     ws.set_row(4, 8)
 
@@ -867,7 +869,7 @@ def _build_xlsx(payload):
     try:
         fmt = _formats_with_extras(workbook)
         summary = workbook.add_worksheet(SUMMARY_SHEET)
-        _write_band(summary, fmt, payload, SUMMARY_SUBTITLE, SUMMARY_LAST_COL)
+        _write_band(summary, fmt, payload, SUMMARY_TITLE, SUMMARY_LAST_COL)
         summary_start = _write_info(summary, fmt, payload, 6, SUMMARY_LAST_COL)
         summary_last = _write_summary(
             summary, fmt, payload, summary_start, SUMMARY_LAST_COL
@@ -882,7 +884,7 @@ def _build_xlsx(payload):
             repeat_last=summary_start,
         )
         customers = workbook.add_worksheet(CUSTOMER_SHEET)
-        _write_band(customers, fmt, payload, CUSTOMER_SUBTITLE, CUSTOMER_LAST_COL)
+        _write_band(customers, fmt, payload, CUSTOMER_TITLE, CUSTOMER_LAST_COL)
         assigned_row, cursor = _write_customers(customers, fmt, payload, 6)
         free_row, cursor = _write_unassigned(customers, fmt, payload, cursor)
         customers_last = _write_recon(

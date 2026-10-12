@@ -17,12 +17,14 @@
           type="object"
           class="oe_highlight"
           invisible="not id or state != 'proposal'"
+          groups="collection.group_collection_user"
         />
                 <button
           name="action_print_receipt_assignment_xlsx"
           string="Exportar Asignaciones"
           type="object"
           invisible="not id or state not in ('proposal', 'closed')"
+          groups="collection.group_collection_user"
         />
             </button>
         </field>

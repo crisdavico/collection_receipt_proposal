@@ -825,9 +825,11 @@ class TestReceiptAssignmentXlsxBuilder(TransactionCase):
 
     def test_membrete_carries_the_sheet_context(self):
         worksheet = self._load()["Resumen"]
-        self.assertEqual(worksheet["A1"].value, "ACME")
-        self.assertEqual(worksheet["E1"].value, "Asignaciones de Cobranza")
-        self.assertEqual(worksheet["E2"].value, "CS/2026/0001")
+        # Like the Planilla since `collection` dropped its company header and
+        # print date: the membrete is the report name and the sheet reference.
+        self.assertEqual(worksheet["A1"].value, "Asignaciones de Cobranza")
+        self.assertEqual(worksheet["A2"].value, "CS/2026/0001")
+        self.assertFalse(worksheet["A4"].value)
         self.assertEqual(worksheet["A7"].value, "Planilla")
         self.assertEqual(worksheet["C7"].value, "CS/2026/0001")
         self.assertEqual(worksheet["E7"].value, "Estado")
@@ -840,11 +842,30 @@ class TestReceiptAssignmentXlsxBuilder(TransactionCase):
         self.assertEqual(worksheet["G8"].value, "01/09/2026 - 08/09/2026")
         self.assertEqual(worksheet["I8"].value, "Clientes")
         self.assertEqual(worksheet["J8"].value, 1)
-        # Clientes splits its membrete over nine columns, not ten.
         customers = self._load()["Clientes"]
-        self.assertEqual(customers["A1"].value, "ACME")
-        self.assertEqual(customers["E1"].value, "Asignaciones - Clientes")
-        self.assertEqual(customers["E2"].value, "CS/2026/0001")
+        self.assertEqual(customers["A1"].value, "Asignaciones - Clientes")
+        self.assertEqual(customers["A2"].value, "CS/2026/0001")
+        self.assertFalse(customers["A4"].value)
+
+    def test_membrete_has_no_company_nor_printed_date(self):
+        """RED/GREEN: the header matches the Planilla's, which shows neither."""
+        workbook = self._load()
+        printed = self.payload["printed_on"].strftime("%d/%m/%Y")
+        # Each sheet spans its membrete over its own width: ten columns on
+        # Resumen, nine on Clientes.
+        for name, last in (("Resumen", "J"), ("Clientes", "I")):
+            worksheet = workbook[name]
+            merges = {str(cell_range) for cell_range in worksheet.merged_cells.ranges}
+            for row in (1, 2, 3, 4):
+                self.assertIn(f"A{row}:{last}{row}", merges, name)
+            values = [
+                cell.value
+                for row in worksheet.iter_rows(max_row=5)
+                for cell in row
+                if cell.value not in (None, "")
+            ]
+            self.assertNotIn(self.payload["company"], values, name)
+            self.assertNotIn(printed, values, name)
 
     def test_geometry_stays_inside_the_shared_a1_helper(self):
         """RED/GREEN: `_a1` is letter-based, so no formula may pass column Z."""

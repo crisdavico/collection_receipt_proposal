@@ -402,7 +402,7 @@ class TestReceiptProposalBoard(ReceiptProposalCommon, TransactionCase):
     def test_sheet_company_rule_still_guards_the_board(self):
         """RED/GREEN: other-company sheets stay hidden by the global `ir.rule`."""
         self._assert_global_company_rule("collection.sheet")
-        user = self._create_user("prop_board_home", "base.group_user")
+        user = self._create_user("prop_board_home", "collection.group_collection_user")
         self._restrict_user_to_company(user, self.env.company)
         visible = self.Sheet.with_user(user).get_proposal_board(self.sheet.id)
         self.assertEqual(visible["sheet"]["id"], self.sheet.id)
@@ -445,11 +445,24 @@ class TestReceiptProposalBoard(ReceiptProposalCommon, TransactionCase):
             open_sheet.action_open_receipt_proposal()
 
     def test_internal_user_reads_the_board_without_sudo(self):
-        """RED/GREEN: an allowed internal user reads the board as themselves."""
-        user = self._create_user("proposal_board_internal", "base.group_user")
+        """RED/GREEN: a Collections User reads the board as themselves."""
+        user = self._create_user(
+            "proposal_board_internal", "collection.group_collection_user"
+        )
         board = self.Sheet.with_user(user).get_proposal_board(self.sheet.id)
         self.assertEqual(board["sheet"]["id"], self.sheet.id)
         self.assertEqual(len(board["columns"]), 2)
+
+    def test_plain_internal_user_cannot_read_or_move_the_board(self):
+        """RED/GREEN: the board is for Collections Users; a CRM user is refused."""
+        plain = self._create_user("proposal_board_plain", "base.group_user")
+        Sheet = self.Sheet.with_user(plain)
+        before = self._snapshot_money()
+        with self.assertRaises(AccessError):
+            Sheet.get_proposal_board(self.sheet.id)
+        with self.assertRaises(AccessError):
+            Sheet.action_proposal_reset_vouchers(sheet_id=self.sheet.id)
+        self._assert_money_unchanged(before)
 
     def test_preview_transfer_does_not_persist(self):
         """RED/GREEN: transfer preview may describe FIFO changes and writes none."""

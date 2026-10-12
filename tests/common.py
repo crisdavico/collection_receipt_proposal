@@ -9,6 +9,7 @@ from odoo.fields import Command
 from odoo.addons.collection.tests.test_collection_payment import (
     dummy_customer_partner,
     ensure_enabled_seller,
+    insert_company_like,
 )
 
 __all__ = ["ReceiptProposalCommon"]
@@ -238,30 +239,11 @@ class ReceiptProposalCommon:
             partner = Partner.browse(self.env.cr.fetchone()[0])
         else:
             partner = Partner.create(partner_vals)
-        # Copy leftover account NOT NULL columns the ORM field set does not
-        # know about in this addon's registry (same pattern as collection
+        # Copy whichever NOT NULL settings this database has from the current
+        # company: `account`'s columns may outlive its fields in this addon's
+        # registry, or not exist at all (same helper as `collection`'s
         # report/binding tests).
-        self.env.cr.execute(
-            """
-            INSERT INTO res_company (
-                name, partner_id, currency_id, active,
-                fiscalyear_last_day, fiscalyear_last_month,
-                account_price_include, cost_method, horizon_days,
-                inventory_period, layout_background, security_lead
-            )
-            SELECT
-                %s, %s, currency_id, true,
-                fiscalyear_last_day, fiscalyear_last_month,
-                account_price_include, cost_method, horizon_days,
-                inventory_period, layout_background, security_lead
-            FROM res_company
-            WHERE id = %s
-            RETURNING id
-            """,
-            (name, partner.id, self.env.company.id),
-        )
-        company = self.env["res.company"].browse(self.env.cr.fetchone()[0])
-        company.invalidate_recordset()
+        company = insert_company_like(self.env, name, partner.id)
         company._collection_copy_sequences()
         company._collection_enable_all_document_types()
         return company
@@ -300,7 +282,9 @@ class ReceiptProposalCommon:
     def _assert_acl(self, model_name, perms):
         acls = self.env["ir.model.access"].search([("model_id.model", "=", model_name)])
         self.assertEqual(len(acls), 1, f"{model_name} must have one ACL row")
-        self.assertEqual(acls.group_id, self.env.ref("base.group_user"))
+        self.assertEqual(
+            acls.group_id, self.env.ref("collection.group_collection_user")
+        )
         self.assertEqual(bool(acls.perm_read), perms[0])
         self.assertEqual(bool(acls.perm_write), perms[1])
         self.assertEqual(bool(acls.perm_create), perms[2])
