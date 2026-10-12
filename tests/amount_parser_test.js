@@ -99,6 +99,12 @@ const RAW_CASES = [
   [EN_US, 1000.5, "1000.5"],
   [EN_US, 1.234, "1.234"],
   [FR_FR, 1234.56, "1234,56"],
+  // `String()` switches to exponent notation here, which `parseAmount` refuses.
+  [ES_AR, 1e-7, "0,0000001"],
+  [ES_AR, -2.5e-7, "-0,00000025"],
+  [EN_US, 1.5e-7, "0.00000015"],
+  [EN_US, 1e21, "1000000000000000000000"],
+  [EN_US, 1.25e21, "1250000000000000000000"],
 ];
 
 function describe(value) {

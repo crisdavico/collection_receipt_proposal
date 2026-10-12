@@ -133,11 +133,32 @@ export function parseAmount(raw, separators) {
   return parseUnsigned(text, decimalPoint, thousandsSep);
 }
 
+/* `String(amount)` in positional notation. Below 1e-6 and from 1e21 up,
+   `String` writes an exponent (`1e-7`), which `parseAmount` refuses; the same
+   shortest digits are moved around the point instead, so nothing is rounded. */
+function plainDecimal(amount) {
+  const text = String(amount);
+  const match = /^(-?)(\d)(?:\.(\d+))?e([+-]\d+)$/u.exec(text);
+  if (!match) {
+    return text;
+  }
+  const [, sign, lead, rest, exponent] = match;
+  const digits = lead + (rest || "");
+  const point = 1 + Number(exponent);
+  if (point <= 0) {
+    return `${sign}0.${"0".repeat(-point)}${digits}`;
+  }
+  if (point >= digits.length) {
+    return `${sign}${digits}${"0".repeat(point - digits.length)}`;
+  }
+  return `${sign}${digits.slice(0, point)}.${digits.slice(point)}`;
+}
+
 /* The seed of an amount input: the user's decimal point and no thousands
    separator, so `parseAmount` reads it back as the same number in every
    locale -- `1000,5` on es_AR, `1000.5` on en_US. */
 export function rawAmount(value, separators) {
   const amount = Number(value);
   const {decimalPoint} = readSeparators(separators);
-  return String(Number.isFinite(amount) ? amount : 0).replace(DOT, decimalPoint);
+  return plainDecimal(Number.isFinite(amount) ? amount : 0).replace(DOT, decimalPoint);
 }
