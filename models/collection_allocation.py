@@ -7,8 +7,21 @@ from odoo import api, fields, models
 from odoo.exceptions import UserError, ValidationError
 from odoo.tools.translate import _
 
+from odoo.addons.collection.models.collection_common import is_privileged, privileged
+
 DOCUMENT_KINDS = ("invoice", "quotation")
 KIND_LABELS = {"invoice": "Invoices", "quotation": "Quotations"}
+# Per-customer close state. Only the board's close/reopen actions write it,
+# inside this privileged scope, so the note rule and the event log always run.
+PROPOSAL_CLOSE_SCOPE = "collection_receipt_proposal_close"
+PROPOSAL_CLOSE_FIELDS = frozenset(
+    {
+        "proposal_closed",
+        "proposal_note",
+        "proposal_closed_uid",
+        "proposal_closed_date",
+    }
+)
 
 
 class CollectionAllocation(models.Model):
@@ -77,6 +90,31 @@ class CollectionAllocation(models.Model):
         ],
         compute="_compute_proposal_figures",
     )
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        if not is_privileged(PROPOSAL_CLOSE_SCOPE) and any(
+            vals.get(name) for vals in vals_list for name in PROPOSAL_CLOSE_FIELDS
+        ):
+            raise self._proposal_close_fields_error()
+        return super().create(vals_list)
+
+    def write(self, vals):
+        if PROPOSAL_CLOSE_FIELDS & set(vals) and not is_privileged(
+            PROPOSAL_CLOSE_SCOPE
+        ):
+            raise self._proposal_close_fields_error()
+        return super().write(vals)
+
+    @api.model
+    @api.private
+    def _proposal_close_fields_error(self):
+        return UserError(
+            _(
+                "Customers can only be closed or reopened from the receipt "
+                "proposal board."
+            )
+        )
 
     @api.depends(
         "proposal_closed",
@@ -367,14 +405,15 @@ class CollectionAllocation(models.Model):
         note = (note or "").strip()
         if self._proposal_has_differences() and not note:
             raise UserError(_("Closing a customer with differences requires a note."))
-        self.write(
-            {
-                "proposal_closed": True,
-                "proposal_note": note,
-                "proposal_closed_uid": self.env.user.id,
-                "proposal_closed_date": fields.Datetime.now(),
-            }
-        )
+        with privileged(PROPOSAL_CLOSE_SCOPE):
+            self.write(
+                {
+                    "proposal_closed": True,
+                    "proposal_note": note,
+                    "proposal_closed_uid": self.env.user.id,
+                    "proposal_closed_date": fields.Datetime.now(),
+                }
+            )
         self.env["collection.receipt.proposal.event"]._proposal_log(
             self.sheet_id,
             "close",
@@ -391,13 +430,14 @@ class CollectionAllocation(models.Model):
         self.sheet_id._proposal_ensure_board_state()
         if not self.proposal_closed:
             raise UserError(_("This customer is not closed on the board."))
-        self.write(
-            {
-                "proposal_closed": False,
-                "proposal_closed_uid": False,
-                "proposal_closed_date": False,
-            }
-        )
+        with privileged(PROPOSAL_CLOSE_SCOPE):
+            self.write(
+                {
+                    "proposal_closed": False,
+                    "proposal_closed_uid": False,
+                    "proposal_closed_date": False,
+                }
+            )
         self.env["collection.receipt.proposal.event"]._proposal_log(
             self.sheet_id,
             "reopen",

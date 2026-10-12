@@ -6,6 +6,7 @@ from datetime import date
 from odoo.exceptions import UserError
 from odoo.tests import TransactionCase
 
+from odoo.addons.collection.models.collection_common import privileged
 from odoo.addons.collection.tests.test_collection_payment import (
     second_active_currency,
 )
@@ -239,9 +240,8 @@ class TestReceiptAssignmentReport(ReceiptProposalCommon, TransactionCase):
     def test_receipt_reference_prefers_the_external_id(self):
         """RED/GREEN: an issued receipt is named by the ERP, not by its rowid."""
         receipt = self._fund(self.allocation_a, self.voucher_a, 150.0)
-        receipt.with_context(
-            collection_receipt_audited_state=True
-        ).external_receipt_id = "REC-0009"
+        with privileged("collection_receipt_audited_state"):
+            receipt.external_receipt_id = "REC-0009"
         block = self._block(self._payload(), self.name_a, "invoice")
         self.assertEqual(block["receipt_reference"], "REC-0009")
 

@@ -3,9 +3,14 @@
 
 from odoo import api, fields, models
 from odoo.exceptions import UserError
+from odoo.tools.misc import clean_context
 from odoo.tools.translate import _
 
-EVENT_CONTEXT_KEY = "collection_receipt_proposal_event"
+from odoo.addons.collection.models.collection_common import is_privileged, privileged
+
+# Privileged scope opened only by ``_proposal_log``; a context key of the same
+# name is client-settable over RPC and MCP and has no effect.
+EVENT_SCOPE = "collection_receipt_proposal_event"
 
 EVENT_TYPE_SELECTION = [
     ("assign", "Assign"),
@@ -70,7 +75,7 @@ class CollectionReceiptProposalEvent(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
-        if not self.env.context.get(EVENT_CONTEXT_KEY):
+        if not is_privileged(EVENT_SCOPE):
             raise UserError(
                 _("Proposal events can only be created by the receipt proposal board.")
             )
@@ -85,7 +90,7 @@ class CollectionReceiptProposalEvent(models.Model):
 
     @api.ondelete(at_uninstall=False)
     def _unlink_forbidden(self):
-        if self.env.context.get("collection_sheet_unlinking"):
+        if is_privileged("collection_sheet_unlinking"):
             return
         raise UserError(_("Proposal events cannot be deleted."))
 
@@ -93,10 +98,14 @@ class CollectionReceiptProposalEvent(models.Model):
     @api.private
     def _proposal_log(self, sheet, event_type, name, **extra):
         """Append one immutable proposal event; the only sanctioned writer."""
+        # Author and time are the server's; a caller's ``default_*`` context
+        # keys MUST NOT fill or forge any event field.
         vals = {
             "sheet_id": sheet.id,
             "event_type": event_type,
             "name": name,
+            "user_id": self.env.user.id,
+            "event_date": fields.Datetime.now(),
         }
         for key in ("allocation_id", "voucher_id"):
             record = extra.pop(key, None)
@@ -106,4 +115,5 @@ class CollectionReceiptProposalEvent(models.Model):
             value = extra.pop(key, None)
             if value not in (None, False, ""):
                 vals[key] = str(value)
-        return self.with_context(**{EVENT_CONTEXT_KEY: True}).create(vals)
+        with privileged(EVENT_SCOPE):
+            return self.with_context(clean_context(self.env.context)).create(vals)

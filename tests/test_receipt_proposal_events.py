@@ -7,6 +7,8 @@ from pathlib import Path
 from odoo.exceptions import AccessError, UserError
 from odoo.tests import TransactionCase
 
+from odoo.addons.collection.models.collection_common import privileged
+
 from .common import ReceiptProposalCommon
 
 _EVENT_TYPES = {
@@ -22,7 +24,6 @@ _EVENT_TYPES = {
     "reopen",
 }
 _EVENT_MODEL = "collection.receipt.proposal.event"
-_EVENT_CONTEXT = "collection_receipt_proposal_event"
 
 
 class TestReceiptProposalEvents(ReceiptProposalCommon, TransactionCase):
@@ -44,12 +45,11 @@ class TestReceiptProposalEvents(ReceiptProposalCommon, TransactionCase):
         return vals
 
     def _gated_create(self, **extra):
-        return self.Event.with_context(**{_EVENT_CONTEXT: True}).create(
-            self._event_vals(**extra)
-        )
+        with privileged("collection_receipt_proposal_event"):
+            return self.Event.create(self._event_vals(**extra))
 
-    def test_create_is_gated_on_the_context_key(self):
-        """RED/GREEN: a bare create raises; the gated create succeeds."""
+    def test_create_is_gated_on_the_privileged_scope(self):
+        """RED/GREEN: a bare create raises; the scoped create succeeds."""
         with self.assertRaises(UserError):
             self.Event.create(self._event_vals())
         event = self._gated_create()
@@ -97,13 +97,14 @@ class TestReceiptProposalEvents(ReceiptProposalCommon, TransactionCase):
         self.assertEqual(leftover.name, "Keep on proposal")
 
         open_sheet = self._create_sheet(force_new=True)
-        cascaded = self.Event.with_context(**{_EVENT_CONTEXT: True}).create(
-            {
-                "sheet_id": open_sheet.id,
-                "event_type": "assign",
-                "name": "Will cascade",
-            }
-        )
+        with privileged("collection_receipt_proposal_event"):
+            cascaded = self.Event.create(
+                {
+                    "sheet_id": open_sheet.id,
+                    "event_type": "assign",
+                    "name": "Will cascade",
+                }
+            )
         cascaded_id = cascaded.id
         open_sheet.unlink()
         self.assertFalse(self.Event.browse(cascaded_id).exists())
@@ -154,9 +155,8 @@ class TestReceiptProposalEvents(ReceiptProposalCommon, TransactionCase):
         Event = self.Event.with_user(internal)
         with self.assertRaises(UserError):
             Event.create(self._event_vals(name="Ungated"))
-        event = Event.with_context(**{_EVENT_CONTEXT: True}).create(
-            self._event_vals(name="Internal create")
-        )
+        with privileged("collection_receipt_proposal_event"):
+            event = Event.create(self._event_vals(name="Internal create"))
         self.assertTrue(event.exists())
         self.assertEqual(event.user_id, internal)
         read = Event.browse(event.id).read(["name", "event_type"])
@@ -181,9 +181,8 @@ class TestReceiptProposalEvents(ReceiptProposalCommon, TransactionCase):
         with self.assertRaises(AccessError):
             Event.browse(visible.id).read(["name"])
         with self.assertRaises(AccessError):
-            Event.with_context(**{_EVENT_CONTEXT: True}).create(
-                self._event_vals(name="Plain create")
-            )
+            with privileged("collection_receipt_proposal_event"):
+                Event.create(self._event_vals(name="Plain create"))
 
     def test_other_company_events_hidden(self):
         """RED/GREEN: events outside company_ids MUST NOT be visible."""
@@ -194,13 +193,14 @@ class TestReceiptProposalEvents(ReceiptProposalCommon, TransactionCase):
         company_b = self._create_company("Proposal Event Hidden Co")
         seller_b = self._create_user("prop_evt_seller_b", "base.group_user")
         sheet_b = self._create_sheet(seller_id=seller_b.id, company_id=company_b.id)
-        hidden = self.Event.with_context(**{_EVENT_CONTEXT: True}).create(
-            {
-                "sheet_id": sheet_b.id,
-                "event_type": "transfer",
-                "name": "Hidden event",
-            }
-        )
+        with privileged("collection_receipt_proposal_event"):
+            hidden = self.Event.create(
+                {
+                    "sheet_id": sheet_b.id,
+                    "event_type": "transfer",
+                    "name": "Hidden event",
+                }
+            )
         self.assertEqual(hidden.company_id, company_b)
         EventHome = self.Event.with_user(user)
         self.assertTrue(EventHome.search([("id", "=", visible.id)]))

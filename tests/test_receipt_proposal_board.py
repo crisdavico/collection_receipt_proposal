@@ -5,9 +5,10 @@ from odoo.exceptions import AccessError, UserError
 from odoo.fields import Command
 from odoo.tests import TransactionCase
 
+from odoo.addons.collection.models.collection_common import privileged
+
 from .common import ReceiptProposalCommon
 
-_EVENT_CONTEXT = "collection_receipt_proposal_event"
 _DOCUMENT_KEYS = {
     "line_id",
     "number",
@@ -325,20 +326,21 @@ class TestReceiptProposalBoard(ReceiptProposalCommon, TransactionCase):
     def test_event_payload_shape(self):
         """RED/GREEN: events[] carries the board audit keys, newest first."""
         Event = self.env["collection.receipt.proposal.event"]
-        older = Event.with_context(**{_EVENT_CONTEXT: True}).create(
-            {
-                "sheet_id": self.sheet.id,
-                "event_type": "assign",
-                "name": "Older event",
-            }
-        )
-        newer = Event.with_context(**{_EVENT_CONTEXT: True}).create(
-            {
-                "sheet_id": self.sheet.id,
-                "event_type": "transfer",
-                "name": "Newer event",
-            }
-        )
+        with privileged("collection_receipt_proposal_event"):
+            older = Event.create(
+                {
+                    "sheet_id": self.sheet.id,
+                    "event_type": "assign",
+                    "name": "Older event",
+                }
+            )
+            newer = Event.create(
+                {
+                    "sheet_id": self.sheet.id,
+                    "event_type": "transfer",
+                    "name": "Newer event",
+                }
+            )
         board = self.Sheet.get_proposal_board(self.sheet.id)
         self.assertGreaterEqual(len(board["events"]), 2)
         self.assertEqual(set(board["events"][0]), _EVENT_KEYS)

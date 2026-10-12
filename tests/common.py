@@ -6,6 +6,7 @@ from datetime import date
 from odoo.exceptions import AccessError
 from odoo.fields import Command
 
+from odoo.addons.collection.models.collection_common import privileged
 from odoo.addons.collection.tests.test_collection_payment import (
     dummy_customer_partner,
     ensure_enabled_seller,
@@ -165,9 +166,8 @@ class ReceiptProposalCommon:
         )
 
     def _mark_validated(self, vouchers):
-        vouchers.with_context(collection_audited_state=True).write(
-            {"state": "validated_collections"}
-        )
+        with privileged("collection_audited_state"):
+            vouchers.write({"state": "validated_collections"})
         return vouchers
 
     def _confirm(self, sheet):
