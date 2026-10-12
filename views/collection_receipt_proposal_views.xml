@@ -10,6 +10,12 @@
         <field name="model">collection.sheet</field>
         <field name="inherit_id" ref="collection.view_collection_sheet_form" />
         <field name="arch" type="xml">
+            <!-- Close first asks to confirm an unfinished board (D7). -->
+            <button name="action_close" position="attributes">
+                <attribute
+          name="context"
+        >{'receipt_proposal_confirm_close': True}</attribute>
+            </button>
             <button name="action_open_document_review" position="after">
                 <button
           name="action_open_receipt_proposal"

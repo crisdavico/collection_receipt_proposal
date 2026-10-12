@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+    <record id="view_collection_sheet_close_confirm_form" model="ir.ui.view">
+        <field name="name">collection.sheet.close.confirm.form</field>
+        <field name="model">collection.sheet.close.confirm</field>
+        <field name="arch" type="xml">
+            <form string="Close Collection Sheet">
+                <field name="sheet_id" invisible="1" />
+                <field name="currency_id" invisible="1" />
+                <div class="alert alert-warning" role="alert">
+                    The receipt proposal board is not finished. Closing confirms
+                    every customer allocation as it stands now.
+                </div>
+                <group>
+                    <group invisible="not pool_count">
+                        <field name="pool_amount" />
+                        <field name="pool_count" />
+                    </group>
+                    <group invisible="not open_customer_count">
+                        <field name="open_customer_count" />
+                    </group>
+                </group>
+                <group invisible="not open_customer_count">
+                    <field name="open_customer_names" nolabel="1" colspan="2" />
+                </group>
+                <footer>
+                    <button
+            name="action_confirm_close"
+            string="Close Anyway"
+            type="object"
+            class="btn-primary"
+            data-hotkey="q"
+          />
+                    <button
+            string="Back to the Sheet"
+            special="cancel"
+            class="btn-secondary"
+            data-hotkey="x"
+          />
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>
