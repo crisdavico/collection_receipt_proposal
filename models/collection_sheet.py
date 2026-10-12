@@ -215,10 +215,15 @@ class CollectionSheet(models.Model):
         budget against its own snapshot, so two operators moving the free part
         of the same voucher at the same moment could both pass and both
         commit. Every mutating RPC therefore locks what it is about to touch
-        before it reads anything it validates: the vouchers whose money moves
-        and the allocations whose circuits are redistributed (a manual
-        imputation and a drop on the same circuit share only the column).
-        Rows are locked in id order, so two moves never deadlock.
+        before it validates anything: the vouchers whose money moves and the
+        allocations whose circuits are redistributed (a manual imputation and
+        a drop on the same circuit share only the column). The caller does
+        read first, but only to find those rows (``action_proposal_undo_split``
+        reads the voucher's current parts to know their columns); every check
+        and every figure comes from what is re-read after the lock. A part
+        another operator adds meanwhile still moves money on the same voucher,
+        so the voucher row serializes the two. Rows are locked in id order,
+        vouchers before allocations, so two moves never deadlock.
 
         The lock alone is not enough under Odoo's REPEATABLE READ: a
         transaction that took its snapshot before the first one committed
