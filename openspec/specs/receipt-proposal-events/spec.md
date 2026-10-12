@@ -13,8 +13,9 @@ cascade.
 The system MUST persist `collection.receipt.proposal.event` with: required indexed
 `sheet_id` (cascade); optional `allocation_id` and `voucher_id`; required `event_type`
 selection `assign`, `transfer`, `split`, `unify`, `circuit`, `impute`, `auto_impute`,
-`close`, `reopen`; `name`; `description`; `value_from`; `value_to`; `user_id` defaulting
-to the current user; `event_date` defaulting to now; stored required precomputed indexed
+`reset`, `close`, `reopen`; `name`; `description`; `value_from`; `value_to`; `user_id`
+and `event_date` (set by the logger to the current user and now, whatever the caller's
+context says); stored required precomputed indexed
 `company_id` related from the sheet. `_order` MUST be `event_date desc, id desc`.
 
 #### Scenario: Fields and type list
@@ -32,16 +33,20 @@ to the current user; `event_date` defaulting to now; stored required precomputed
 
 ### Requirement: Immutability
 
-Create MUST succeed only when context key `collection_receipt_proposal_event` is set.
-`write` MUST raise and leave the row unchanged. `@api.ondelete` MUST raise unless the
-parent sheet cascade is unlinking.
+Create MUST succeed only inside the privileged scope `collection_receipt_proposal_event`
+(`collection_common.privileged`, a contextvar), opened only by `_proposal_log`, which
+sets `user_id` and `event_date` itself and drops caller `default_*` context keys; a
+context key of that name MUST have no effect. `write` MUST raise and leave the row
+unchanged. `@api.ondelete` MUST raise unless the parent sheet cascade is unlinking (the
+`collection_sheet_unlinking` scope). (Previously: create was gated by a context key any
+caller could set, with a caller-chosen author and date.)
 
 #### Scenario: Create gated
 
-- GIVEN context without `collection_receipt_proposal_event`
+- GIVEN a create outside the privileged scope, with or without a context key of that name
 - WHEN create is attempted
 - THEN MUST refuse
-- AND with the context key, create MUST persist
+- AND inside the scope (via `_proposal_log`), create MUST persist
 
 #### Scenario: Write refused
 
@@ -59,8 +64,9 @@ parent sheet cascade is unlinking.
 
 ### Requirement: ACL and company rule
 
-Internal users (`base.group_user`) MUST have read+create only (`1,0,1,0`). Write and
-unlink ACL MUST be denied. A global `ir.rule` named
+Collections Users (`collection.group_collection_user`) MUST have read+create only
+(`1,0,1,0`); plain internal users get no access. Write and unlink ACL MUST be denied. A
+global `ir.rule` named
 `collection_receipt_proposal_event_company_rule` MUST use
 `[('company_id', 'in', company_ids)]` with no `groups`, in a `noupdate` file. Dedicated
 groups MUST NOT be added. Calls MUST NOT `sudo()`.
@@ -71,10 +77,10 @@ groups MUST NOT be added. Calls MUST NOT `sudo()`.
 - WHEN they search events
 - THEN that event MUST NOT be visible
 
-#### Scenario: Internal read and create without sudo
+#### Scenario: Collections User read and create without sudo
 
-- GIVEN an authenticated internal user of an allowed company
-- WHEN they read events or create with the context key
+- GIVEN a Collections User of an allowed company
+- WHEN they read events or create inside the privileged scope
 - THEN ACL MUST allow it without `sudo()`
 - AND write/unlink ACL MUST deny
 - AND a dedicated event group MUST NOT exist
@@ -84,8 +90,8 @@ groups MUST NOT be added. Calls MUST NOT `sudo()`.
 Board mutations MUST append an event of the matching type: pool assign → `assign`; card
 move → `transfer`; partial split → `split`; unify or undo-split → `unify`; circuit
 change → `circuit`; manual impute → `impute`; FIFO recompute with non-empty changes →
-`auto_impute`; customer close → `close`; reopen → `reopen`. FIFO with empty `changes`
-MUST NOT write `auto_impute`.
+`auto_impute`; board reset → `reset`; customer close → `close`; reopen → `reopen`. FIFO
+with empty `changes` MUST NOT write `auto_impute`.
 
 #### Scenario: Actions write expected types
 
