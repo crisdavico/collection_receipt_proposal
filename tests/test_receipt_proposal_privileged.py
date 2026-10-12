@@ -12,6 +12,12 @@ from odoo.tests import TransactionCase
 from .common import ReceiptProposalCommon
 
 _EVENT_MODEL = "collection.receipt.proposal.event"
+_CLOSE_GUARD_MESSAGE = (
+    "Customers can only be closed or reopened from the receipt proposal board."
+)
+_EVENT_GUARD_MESSAGE = (
+    "Proposal events can only be created by the receipt proposal board."
+)
 _CLOSE_FIELD_WRITES = (
     {"proposal_closed": True},
     {"proposal_note": "Forged note"},
@@ -44,7 +50,7 @@ class TestReceiptProposalPrivileged(ReceiptProposalCommon, TransactionCase):
             .with_user(self.operator)
             .with_context(collection_receipt_proposal_event=True)
         )
-        with self.assertRaises(UserError):
+        with self.assertRaises(UserError) as error:
             Event.create(
                 {
                     "sheet_id": self.sheet.id,
@@ -55,6 +61,8 @@ class TestReceiptProposalPrivileged(ReceiptProposalCommon, TransactionCase):
                     "event_date": "2020-01-01 00:00:00",
                 }
             )
+        self.assertIs(type(error.exception), UserError)
+        self.assertEqual(str(error.exception), _EVENT_GUARD_MESSAGE)
         self.assertEqual(self._sheet_events(), before)
 
     def test_board_events_ignore_forged_default_context_keys(self):
@@ -72,16 +80,24 @@ class TestReceiptProposalPrivileged(ReceiptProposalCommon, TransactionCase):
         self.assertEqual(event.description, "Checked")
         self.assertGreater(event.event_date.year, 2020)
 
+    def _assert_close_guard(self, error):
+        """The board's own guard refused, not an ACL or a field-groups check.
+
+        ``AccessError`` and ``ValidationError`` subclass ``UserError``, so
+        ``assertRaises(UserError)`` alone would pass on either of them.
+        """
+        self.assertIs(type(error.exception), UserError)
+        self.assertEqual(str(error.exception), _CLOSE_GUARD_MESSAGE)
+
     def test_close_fields_are_writable_only_through_the_board_actions(self):
         writes = _CLOSE_FIELD_WRITES + ({"proposal_closed_uid": self.other.id},)
         allocation = self.allocation.with_user(self.operator)
         for vals in writes:
             for context in ({}, {"collection_receipt_proposal_close": True}):
-                with (
-                    self.subTest(vals=vals, context=context),
-                    self.assertRaises(UserError),
-                ):
-                    allocation.with_context(**context).write(vals)
+                with self.subTest(vals=vals, context=context):
+                    with self.assertRaises(UserError) as error:
+                        allocation.with_context(**context).write(vals)
+                    self._assert_close_guard(error)
         self.assertFalse(self.allocation.proposal_closed)
         self.assertFalse(self.allocation.proposal_note)
         self.assertFalse(self.allocation.proposal_closed_uid)
@@ -92,7 +108,7 @@ class TestReceiptProposalPrivileged(ReceiptProposalCommon, TransactionCase):
         for index, vals in enumerate(_CLOSE_FIELD_WRITES):
             partner = self._partner(f"PROP-SCOPE-NEW-{index}")
             with self.subTest(vals=vals):
-                with self.assertRaises(UserError):
+                with self.assertRaises(UserError) as error:
                     Allocation.create(
                         {
                             "sheet_id": self.sheet.id,
@@ -101,6 +117,7 @@ class TestReceiptProposalPrivileged(ReceiptProposalCommon, TransactionCase):
                             **vals,
                         }
                     )
+                self._assert_close_guard(error)
                 self.assertFalse(
                     Allocation.search(
                         [
@@ -109,6 +126,18 @@ class TestReceiptProposalPrivileged(ReceiptProposalCommon, TransactionCase):
                         ]
                     )
                 )
+
+    def test_copying_a_closed_customer_does_not_trip_the_guard(self):
+        """The close fields are ``copy=False``: a copy starts open."""
+        self.allocation.with_user(self.operator).action_proposal_close(note="Done")
+        self.assertTrue(self.allocation.proposal_closed)
+        partner = self._partner("PROP-SCOPE-COPY")
+        copy = self.allocation.with_user(self.operator).copy({"partner_id": partner.id})
+        self.assertEqual(copy.sheet_id, self.sheet)
+        self.assertFalse(copy.proposal_closed)
+        self.assertFalse(copy.proposal_note)
+        self.assertFalse(copy.proposal_closed_uid)
+        self.assertFalse(copy.proposal_closed_date)
 
     def test_board_close_and_reopen_still_write_and_log(self):
         allocation = self.allocation.with_user(self.operator)

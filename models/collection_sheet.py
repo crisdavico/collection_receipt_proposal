@@ -735,7 +735,15 @@ class CollectionSheet(models.Model):
             raise UserError(
                 _("The circuit cannot apply more than its collected amount.")
             )
-        for line_id, value in requested.items():
+        # Falling documents first: the end state fits the budget, and core
+        # refuses an intermediate write that raises the circuit past it.
+        for line_id, value in sorted(
+            requested.items(),
+            key=lambda item: currency.compare_amounts(
+                item[1], by_id[item[0]].amount_applied or 0.0
+            )
+            > 0,
+        ):
             by_id[line_id].amount_applied = value
         sheet.env["collection.receipt.proposal.event"]._proposal_log(
             sheet,

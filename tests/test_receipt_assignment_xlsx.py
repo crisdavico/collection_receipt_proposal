@@ -950,3 +950,45 @@ class TestReceiptAssignmentXlsxRender(ReceiptProposalCommon, TransactionCase):
         ):
             source = (root / relative).read_text(encoding="utf-8")
             self.assertNotIn("sudo(", source, relative)
+
+
+class TestReceiptAssignmentXlsxText(TransactionCase):
+    """Free text from the board and the ERP must never become a live formula."""
+
+    def test_free_text_is_written_as_text_never_as_formula(self):
+        """Names, notes, numbers and banks starting with ``=`` stay strings."""
+        injected = {
+            "name": '=HYPERLINK("http://evil.example/x","click")',
+            "note": "=1+1",
+            "number": "=2+2",
+            "reference": "=3+3",
+            "bank": "=4+4",
+            "url": "http://evil.example/account",
+        }
+        payload = _fixture_payload()
+        for row in payload["summary_rows"]:
+            row["name"] = injected["name"]
+            row["note"] = injected["note"]
+        circuit = payload["customer_blocks"][0]["circuits"][0]
+        circuit["document_rows"][0]["number"] = injected["number"]
+        transfer, check = circuit["voucher_blocks"]
+        transfer["rows"][0]["reference"] = injected["reference"]
+        transfer["rows"][0]["from_account"] = injected["url"]
+        check["rows"][0]["check_bank"] = injected["bank"]
+        workbook = load_workbook(BytesIO(builder._build_xlsx(payload)))
+        cells = [
+            cell
+            for worksheet in workbook.worksheets
+            for row in worksheet.iter_rows()
+            for cell in row
+        ]
+        for label, text in injected.items():
+            with self.subTest(field=label):
+                matches = [cell for cell in cells if cell.value == text]
+                self.assertTrue(matches, f"{text!r} must be written")
+                for cell in matches:
+                    self.assertEqual(cell.data_type, "s", cell.coordinate)
+                    self.assertIsNone(cell.hyperlink, cell.coordinate)
+        formulas = [str(cell.value) for cell in cells if cell.data_type == "f"]
+        self.assertTrue(formulas, "intentional formulas must still be formulas")
+        self.assertFalse([value for value in formulas if "HYPERLINK" in value])

@@ -561,8 +561,10 @@ class TestReceiptAssignmentReport(ReceiptProposalCommon, TransactionCase):
         self.assertEqual(self.allocation_a._proposal_kind_status("invoice"), "a_favor")
 
     def test_kind_status_overdraft_when_applied_exceeds_collected(self):
-        self._fund(self.allocation_a, self.voucher_a, 100.0)
-        self.allocation_a._proposal_kind_lines("invoice")[1].amount_applied = 100.0
+        # Core refuses raising applications past the values, so the overdraft
+        # comes the way the board can produce it: the values shrink first.
+        receipt = self._fund(self.allocation_a, self.voucher_a, 200.0)
+        receipt.value_ids.amount = 100.0
         self.assertEqual(self.allocation_a._proposal_kind_status("invoice"), "cruce")
 
     def test_kind_status_partial_when_money_and_debt_both_remain(self):

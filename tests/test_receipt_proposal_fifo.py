@@ -51,6 +51,25 @@ class TestReceiptProposalFifo(ReceiptProposalCommon, TransactionCase):
             [("FA-0001", 100.0), ("FA-0002", 50.0)],
         )
 
+    def test_recompute_lowers_documents_before_raising_others(self):
+        """A fully funded circuit moves its money to an older document.
+
+        Raising the older document first would apply 200 on a receipt worth
+        100 for a moment, which core refuses; the falling write goes first.
+        """
+        self._fund(self.allocation, self.voucher, 100.0)
+        lines = {
+            line.invoice_number: line
+            for line in self.allocation._proposal_kind_lines("invoice")
+        }
+        lines["FA-0002"].amount_applied = 100.0
+        preview = self.allocation._proposal_recompute("invoice")
+        self.assertEqual(len(preview["changes"]), 2)
+        self.assertEqual(
+            self._applied(self.allocation),
+            [("FA-0001", 100.0), ("FA-0002", 0.0)],
+        )
+
     def test_recompute_is_idempotent(self):
         """RED/GREEN: recomputing twice changes nothing the second time."""
         self._fund(self.allocation, self.voucher, 150.0)
