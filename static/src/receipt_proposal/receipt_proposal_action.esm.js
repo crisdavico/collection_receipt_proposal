@@ -42,6 +42,7 @@ import {
 import {Component, onWillStart, onWillUnmount, useState} from "@odoo/owl";
 import {ControlPanel} from "@web/search/control_panel/control_panel";
 import {_t} from "@web/core/l10n/translation";
+import {localization} from "@web/core/l10n/localization";
 import {registry} from "@web/core/registry";
 import {standardActionServiceProps} from "@web/webclient/actions/action_service";
 import {useHotkey} from "@web/core/hotkeys/hotkey_hook";
@@ -710,7 +711,7 @@ export class ReceiptProposalAction extends Component {
       to_allocation_id: toAllocationId,
       kind: toAllocationId ? kind || "" : "",
       amount: maximum,
-      raw_amount: rawAmount(maximum),
+      raw_amount: rawAmount(maximum, localization),
       maximum,
       unify: true,
       preview: [],
@@ -847,7 +848,7 @@ export class ReceiptProposalAction extends Component {
 
   setTransferGap() {
     const modal = this.state.modal;
-    modal.raw_amount = rawAmount(this.transferGapQuick);
+    modal.raw_amount = rawAmount(this.transferGapQuick, localization);
     this.syncTransfer();
   }
 
@@ -879,7 +880,10 @@ export class ReceiptProposalAction extends Component {
 
   setTransferQuick(ratio) {
     const modal = this.state.modal;
-    modal.raw_amount = rawAmount(roundAmount(modal.maximum * ratio, this.currency));
+    modal.raw_amount = rawAmount(
+      roundAmount(modal.maximum * ratio, this.currency),
+      localization
+    );
     this.syncTransfer();
   }
 
@@ -894,7 +898,11 @@ export class ReceiptProposalAction extends Component {
       modal.amount = modal.maximum;
       modal.error = "";
     } else {
-      const check = validateTransferAmount(modal.raw_amount, modal.maximum);
+      const check = validateTransferAmount(
+        modal.raw_amount,
+        modal.maximum,
+        localization
+      );
       modal.amount = check.amount;
       modal.error = check.error;
     }
@@ -1195,7 +1203,7 @@ export class ReceiptProposalAction extends Component {
       amount: row.amount,
       balance: row.balance,
       applied: row.applied,
-      raw: rawAmount(row.applied),
+      raw: rawAmount(row.applied, localization),
     }));
   }
 
@@ -1215,7 +1223,7 @@ export class ReceiptProposalAction extends Component {
 
   onImputeInput(ev, row) {
     row.raw = ev.target.value;
-    const parsed = parseAmount(ev.target.value);
+    const parsed = parseAmount(ev.target.value, localization);
     row.applied = Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
   }
 
@@ -1273,7 +1281,7 @@ export class ReceiptProposalAction extends Component {
         if (changes.has(row.line_id)) {
           const applied = changes.get(row.line_id);
           row.applied = applied;
-          row.raw = rawAmount(applied);
+          row.raw = rawAmount(applied, localization);
         }
       }
       this.notification.add(_t("Cobrado distribuido desde la deuda más antigua."), {
