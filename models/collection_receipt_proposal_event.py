@@ -116,4 +116,6 @@ class CollectionReceiptProposalEvent(models.Model):
             if value not in (None, False, ""):
                 vals[key] = str(value)
         with privileged(EVENT_SCOPE):
-            return self.with_context(clean_context(self.env.context)).create(vals)
+            # Replace (not merge) the context so no ``default_*`` key survives.
+            clean_env = self.env(context=clean_context(self.env.context))
+            return self.with_env(clean_env).create(vals)
