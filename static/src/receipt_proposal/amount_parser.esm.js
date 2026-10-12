@@ -12,8 +12,8 @@
    `tests/amount_parser_test.js` checks it.
 
    The rules, for one decimal point D and one thousands separator T:
-   - a thousands separator is accepted only in valid groups: 1 to 3 digits,
-     then groups of exactly 3;
+   - a thousands separator is accepted only in valid groups: 1 to 3 digits
+     not starting with 0, then groups of exactly 3;
    - with both `.` and `,` present, the last one is the decimal point;
    - with a single kind of separator, it is the decimal point when it appears
      once and its last group is not exactly 3 digits (`500.50`);
@@ -73,7 +73,8 @@ function lastMarkIsDecimal(groups, seps, decimalPoint, thousandsSep) {
   return last === thousandsSep ? false : null;
 }
 
-/* The integer part's digits, or null when its grouping is not 1-3 then 3s. */
+/* The integer part's digits, or null when its grouping is not 1-3 then 3s. A
+   grouped number never starts with 0: `0.500` is not five hundred. */
 function integerDigits(groups, seps) {
   if (!seps.length) {
     return groups[0];
@@ -83,7 +84,10 @@ function integerDigits(groups, seps) {
   }
   const [head, ...tail] = groups;
   const valid =
-    head.length >= 1 && head.length <= 3 && tail.every((group) => group.length === 3);
+    head.length >= 1 &&
+    head.length <= 3 &&
+    !head.startsWith("0") &&
+    tail.every((group) => group.length === 3);
   return valid ? groups.join("") : null;
 }
 
@@ -129,11 +133,32 @@ export function parseAmount(raw, separators) {
   return parseUnsigned(text, decimalPoint, thousandsSep);
 }
 
+/* `String(amount)` in positional notation. Below 1e-6 and from 1e21 up,
+   `String` writes an exponent (`1e-7`), which `parseAmount` refuses; the same
+   shortest digits are moved around the point instead, so nothing is rounded. */
+function plainDecimal(amount) {
+  const text = String(amount);
+  const match = /^(-?)(\d)(?:\.(\d+))?e([+-]\d+)$/u.exec(text);
+  if (!match) {
+    return text;
+  }
+  const [, sign, lead, rest, exponent] = match;
+  const digits = lead + (rest || "");
+  const point = 1 + Number(exponent);
+  if (point <= 0) {
+    return `${sign}0.${"0".repeat(-point)}${digits}`;
+  }
+  if (point >= digits.length) {
+    return `${sign}${digits}${"0".repeat(point - digits.length)}`;
+  }
+  return `${sign}${digits.slice(0, point)}.${digits.slice(point)}`;
+}
+
 /* The seed of an amount input: the user's decimal point and no thousands
    separator, so `parseAmount` reads it back as the same number in every
    locale -- `1000,5` on es_AR, `1000.5` on en_US. */
 export function rawAmount(value, separators) {
   const amount = Number(value);
   const {decimalPoint} = readSeparators(separators);
-  return String(Number.isFinite(amount) ? amount : 0).replace(DOT, decimalPoint);
+  return plainDecimal(Number.isFinite(amount) ? amount : 0).replace(DOT, decimalPoint);
 }

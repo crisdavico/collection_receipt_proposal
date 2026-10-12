@@ -18,12 +18,16 @@ class TestReceiptProposalAmountParser(TransactionCase):
     The old parser dropped every ``.`` and read that as 50050. The parser is a
     pure module, so its cases live in ``amount_parser_test.js`` and execute in
     Node; this test only runs that script and reports its output.
+
+    Node ships in the Odoo image, so a missing Node fails the test: a skip
+    would let the suite report green without one parser check having run.
     """
 
     def test_typed_amounts_are_read_by_locale(self):
         node = shutil.which("node") or shutil.which("nodejs")
-        if not node:
-            self.skipTest("Node.js is required to run the amount parser checks.")
+        self.assertTrue(
+            node, "Node.js is required to run the amount parser checks (not found)."
+        )
         result = subprocess.run(
             [node, str(_SCRIPT)],
             capture_output=True,
