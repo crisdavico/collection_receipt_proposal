@@ -1,0 +1,1493 @@
+# Translation of Odoo Server.
+# This file contains the translation of the following modules:
+# 	* collection_receipt_proposal
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Odoo Server 19.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-10-12 07:40+0000\n"
+"PO-Revision-Date: 2026-10-12 07:40+0000\n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: \n"
+"Plural-Forms: \n"
+
+#. module: collection_receipt_proposal
+#. odoo-python
+#: code:addons/collection_receipt_proposal/models/collection_sheet.py:0
+msgid "%(cards)s card(s) from %(customers)s customer(s)"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-python
+#: code:addons/collection_receipt_proposal/models/collection_allocation.py:0
+msgid "%(partner)s - %(count)s document(s)"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "(requerida al cerrar con diferencias)"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-python
+#: code:addons/collection_receipt_proposal/models/collection_sheet.py:0
+msgid "A document cannot be applied above its outstanding balance."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "A favor"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-python
+#: code:addons/collection_receipt_proposal/models/collection_sheet.py:0
+msgid ""
+"A retention certificate can only move between the circuits of its own "
+"customer, %(customer)s."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-python
+#: code:addons/collection_receipt_proposal/models/collection_sheet.py:0
+msgid ""
+"A retention certificate stays with its customer: it cannot return to the "
+"unassigned pool."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-python
+#: code:addons/collection_receipt_proposal/models/collection_sheet.py:0
+msgid "A valid amount is required."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-python
+#: code:addons/collection_receipt_proposal/models/collection_sheet.py:0
+msgid "A valid board card is required."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-python
+#: code:addons/collection_receipt_proposal/models/collection_sheet.py:0
+msgid "A valid circuit is required."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-python
+#: code:addons/collection_receipt_proposal/models/collection_sheet.py:0
+msgid "A valid collection sheet is required for the receipt proposal board."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-python
+#: code:addons/collection_receipt_proposal/models/collection_sheet.py:0
+msgid "A valid customer column is required."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-python
+#: code:addons/collection_receipt_proposal/models/collection_sheet.py:0
+msgid "A valid document is required."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-python
+#: code:addons/collection_receipt_proposal/models/collection_sheet.py:0
+msgid "A valid payment voucher is required."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_receipt_proposal_event__allocation_id
+msgid "Allocation"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-python
+#: code:addons/collection_receipt_proposal/models/collection_allocation.py:0
+msgid "Allocation vouchers must share the allocation customer."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-python
+#: code:addons/collection_receipt_proposal/models/collection_sheet.py:0
+msgid "Applied amounts cannot be negative."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Arrastrá un valor sobre el circuito FAC o PRE del cliente."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields.selection,name:collection_receipt_proposal.selection__collection_receipt_proposal_event__event_type__assign
+msgid "Assign"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields.selection,name:collection_receipt_proposal.selection__collection_receipt_proposal_event__event_type__auto_impute
+msgid "Automatic Imputation"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-python
+#: code:addons/collection_receipt_proposal/models/collection_allocation.py:0
+msgid "Automatic imputation to %(kind)s (oldest debt first)"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model_terms:ir.ui.view,arch_db:collection_receipt_proposal.view_collection_sheet_close_confirm_form
+msgid "Back to the Sheet"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-python
+#: code:addons/collection_receipt_proposal/models/collection_sheet.py:0
+msgid "Board reset to the unassigned pool"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Buscar cliente por nombre o CUIT"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Buscar por nombre o CUIT"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Calculando reimputación…"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Cambiar circuito"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Cambiar circuito de aplicación"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Cancelar"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-python
+#: code:addons/collection_receipt_proposal/models/collection_sheet.py:0
+msgid "Card merged into an existing card"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-python
+#: code:addons/collection_receipt_proposal/models/collection_sheet.py:0
+msgid "Card moved to another circuit"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-python
+#: code:addons/collection_receipt_proposal/models/collection_sheet.py:0
+msgid "Card returned to the unassigned pool"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-python
+#: code:addons/collection_receipt_proposal/models/collection_sheet.py:0
+msgid "Card transferred to another customer"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Cargando el tablero de conciliación…"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Cerrar cliente"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Cerrar cliente en la planilla"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields.selection,name:collection_receipt_proposal.selection__collection_receipt_proposal_event__event_type__circuit
+msgid "Circuit"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields.selection,name:collection_receipt_proposal.selection__collection_allocation__proposal_status__cruce
+msgid "Circuit overdraft"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Circuito"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.esm.js:0
+msgid "Circuito actualizado."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Cliente"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_helpers.esm.js:0
+msgid "Cliente A→Z"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.esm.js:0
+msgid "Cliente cerrado en la planilla."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.esm.js:0
+msgid "Cliente reabierto."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Clientes alcanzados"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Clientes con deuda"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields.selection,name:collection_receipt_proposal.selection__collection_receipt_proposal_event__event_type__close
+msgid "Close"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model_terms:ir.ui.view,arch_db:collection_receipt_proposal.view_collection_sheet_close_confirm_form
+msgid "Close Anyway"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-python
+#: code:addons/collection_receipt_proposal/models/collection_sheet.py:0
+#: model_terms:ir.ui.view,arch_db:collection_receipt_proposal.view_collection_sheet_close_confirm_form
+msgid "Close Collection Sheet"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields.selection,name:collection_receipt_proposal.selection__collection_allocation__proposal_status__cerrado
+msgid "Closed"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_allocation__proposal_closed_uid
+msgid "Closed By"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-python
+#: code:addons/collection_receipt_proposal/models/collection_allocation.py:0
+msgid "Closing a customer with differences requires a note."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Cob."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Cobrado"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.esm.js:0
+msgid "Cobrado a %s sin imputar"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.esm.js:0
+msgid "Cobrado distribuido desde la deuda más antigua."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Cobrado por encima de la deuda"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model,name:collection_receipt_proposal.model_collection_allocation
+msgid "Collection Allocation"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model,name:collection_receipt_proposal.model_collection_receipt_assignment_xlsx
+msgid "Collection Receipt Assignment XLSX"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model,name:collection_receipt_proposal.model_collection_receipt_proposal_event
+msgid "Collection Receipt Proposal Event"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model,name:collection_receipt_proposal.model_collection_receipt_value
+msgid "Collection Receipt Value"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model,name:collection_receipt_proposal.model_collection_sheet
+msgid "Collection Sheet"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model,name:collection_receipt_proposal.model_collection_sheet_close_confirm
+msgid "Collection Sheet Close Confirmation"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_receipt_proposal_event__company_id
+msgid "Company"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.esm.js:0
+msgid "Comprobantes devueltos a Sin asignar."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Conciliación"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Conciliación del cliente"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Confirmar imputación"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_receipt_proposal_event__create_uid
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_sheet_close_confirm__create_uid
+msgid "Created by"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_receipt_proposal_event__create_date
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_sheet_close_confirm__create_date
+msgid "Created on"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields.selection,name:collection_receipt_proposal.selection__collection_allocation__proposal_status__a_favor
+msgid "Credit balance"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.esm.js:0
+msgid "Cubrir %s"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_sheet_close_confirm__currency_id
+msgid "Currency"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-python
+#: code:addons/collection_receipt_proposal/models/collection_allocation.py:0
+msgid "Customer closed on the board"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-python
+#: code:addons/collection_receipt_proposal/models/collection_allocation.py:0
+msgid "Customer reopened on the board"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_sheet_close_confirm__open_customer_count
+msgid "Customers Still Open"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-python
+#: code:addons/collection_receipt_proposal/models/collection_allocation.py:0
+msgid ""
+"Customers can only be closed or reopened from the receipt proposal board."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_receipt_proposal_event__description
+msgid "Description"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Deshacer división"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.esm.js:0
+msgid "Destino"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Deuda"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Deuda total"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_helpers.esm.js:0
+msgid "Devolver a Sin asignar"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Devolver todo a Sin asignar"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_allocation__display_name
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_receipt_assignment_xlsx__display_name
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_receipt_proposal_event__display_name
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_receipt_value__display_name
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_sheet__display_name
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_sheet_close_confirm__display_name
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_voucher__display_name
+msgid "Display Name"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Distribuir por antigüedad"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.esm.js:0
+msgid "División deshecha."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid ""
+"El cliente está cerrado en la planilla. Reabrilo para modificar la\n"
+"                    imputación."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.esm.js:0
+msgid "El cliente está cerrado. Reabrilo para modificar imputaciones."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_helpers.esm.js:0
+msgid "El importe debe ser mayor que cero."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_helpers.esm.js:0
+msgid "El importe supera el máximo disponible."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Emitida"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_receipt_proposal_event__event_date
+msgid "Event Date"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_receipt_proposal_event__event_type
+msgid "Event Type"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-python
+#: code:addons/collection_receipt_proposal/models/collection_sheet.py:0
+msgid ""
+"Every payment voucher that can be returned is already in the unassigned "
+"pool."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model_terms:ir.ui.view,arch_db:collection_receipt_proposal.view_collection_sheet_form_receipt_proposal
+msgid "Exportar Asignaciones"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.esm.js:0
+msgid "Facturas sin cubrir"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Falta"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Filtrar por circuito"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Hay clientes cerrados con valores asignados."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Hay documentos imputados por encima del saldo o del cobrado."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Historial"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_allocation__id
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_receipt_assignment_xlsx__id
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_receipt_proposal_event__id
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_receipt_value__id
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_sheet__id
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_sheet_close_confirm__id
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_voucher__id
+msgid "ID"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Importe"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Importe a transferir"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Importe que vuelve al pool"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.esm.js:0
+msgid "Imputación confirmada."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Imputado"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.esm.js:0
+msgid "Imputado a %s por encima del cobro"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields.selection,name:collection_receipt_proposal.selection__collection_receipt_proposal_event__event_type__impute
+msgid "Impute"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "La planilla no tiene clientes con deuda cargada."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_receipt_proposal_event__write_uid
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_sheet_close_confirm__write_uid
+msgid "Last Updated by"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_receipt_proposal_event__write_date
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_sheet_close_confirm__write_date
+msgid "Last Updated on"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Limpiar filtros"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Los dos circuitos quedan conciliados sin diferencias."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-python
+#: code:addons/collection_receipt_proposal/models/collection_sheet.py:0
+msgid "Manual imputation to %(kind)s"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_helpers.esm.js:0
+msgid "Mayor cobrado"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_helpers.esm.js:0
+msgid "Mayor deuda"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Mostrando solo el comprobante dividido en"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_helpers.esm.js:0
+msgid "Más sin imputar"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_receipt_proposal_event__name
+msgid "Name"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Ningún cliente coincide con la búsqueda."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Ningún comprobante sin asignar es de ese tipo."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "No se pudo abrir el tablero"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_helpers.esm.js:0
+msgid "No se pudo completar la operación del tablero."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields.selection,name:collection_receipt_proposal.selection__collection_allocation__proposal_status__sin_iniciar
+msgid "Not started"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Nuevo circuito · obligatorio"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Observación"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Observación de cierre"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_sheet_close_confirm__open_customer_names
+msgid "Open Customers"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Orden"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.esm.js:0
+msgid "Origen"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields.selection,name:collection_receipt_proposal.selection__collection_allocation__proposal_status__deuda
+msgid "Outstanding debt"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.esm.js:0
+msgid "Parte %s — dividido entre clientes"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.esm.js:0
+msgid "Parte %s — dividido por circuito"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields.selection,name:collection_receipt_proposal.selection__collection_allocation__proposal_status__parcial
+msgid "Partial"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model,name:collection_receipt_proposal.model_collection_voucher
+msgid "Payment Voucher"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-python
+#: code:addons/collection_receipt_proposal/models/collection_sheet.py:0
+msgid "Payment voucher assigned from the pool"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Pendiente de asignar"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.esm.js:0
+msgid "Presupuestos sin conciliar"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_allocation__proposal_applied_invoice
+msgid "Proposal Applied Invoice"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_allocation__proposal_applied_quotation
+msgid "Proposal Applied Quotation"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_voucher__proposal_assigned_amount
+msgid "Proposal Assigned Amount"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_allocation__proposal_available_invoice
+msgid "Proposal Available Invoice"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_allocation__proposal_available_quotation
+msgid "Proposal Available Quotation"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_allocation__proposal_closed
+msgid "Proposal Closed"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_allocation__proposal_closed_date
+msgid "Proposal Closed Date"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_allocation__proposal_collected_invoice
+msgid "Proposal Collected Invoice"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_allocation__proposal_collected_quotation
+msgid "Proposal Collected Quotation"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_voucher__proposal_free_amount
+msgid "Proposal Free Amount"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_voucher__proposal_is_split
+msgid "Proposal Is Split"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_allocation__proposal_note
+msgid "Proposal Note"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_allocation__proposal_pending_invoice
+msgid "Proposal Pending Invoice"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_allocation__proposal_pending_quotation
+msgid "Proposal Pending Quotation"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_allocation__proposal_status
+msgid "Proposal Status"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_allocation__proposal_total_invoice
+msgid "Proposal Total Invoice"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_allocation__proposal_total_quotation
+msgid "Proposal Total Quotation"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-python
+#: code:addons/collection_receipt_proposal/models/collection_receipt_proposal_event.py:0
+msgid "Proposal events can only be created by the receipt proposal board."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-python
+#: code:addons/collection_receipt_proposal/models/collection_receipt_proposal_event.py:0
+msgid "Proposal events cannot be deleted."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-python
+#: code:addons/collection_receipt_proposal/models/collection_receipt_proposal_event.py:0
+msgid "Proposal events cannot be modified."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Queda con"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Queda registrado con tu usuario y la fecha y hora del cierre."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Quitar filtro"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Reabrilos antes de restablecer:"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Reabrir cliente"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.actions.client,name:collection_receipt_proposal.action_collection_receipt_proposal
+#: model_terms:ir.ui.view,arch_db:collection_receipt_proposal.view_collection_sheet_form_receipt_proposal
+msgid "Receipt Proposal"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_voucher__proposal_value_ids
+msgid "Receipt Values"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields.selection,name:collection_receipt_proposal.selection__collection_allocation__proposal_status__conciliado
+msgid "Reconciled"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields.selection,name:collection_receipt_proposal.selection__collection_receipt_proposal_event__event_type__reopen
+msgid "Reopen"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-python
+#: code:addons/collection_receipt_proposal/models/collection_sheet.py:0
+msgid "Reopen these customers before resetting the board: %(names)s"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields.selection,name:collection_receipt_proposal.selection__collection_receipt_proposal_event__event_type__reset
+msgid "Reset"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Restablecer comprobantes"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_helpers.esm.js:0
+msgid "Reunificar"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Reunificar todo en"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Revisá que la planilla esté en estado Propuesta."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Saldo"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Se cierra con diferencias:"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid ""
+"Se imputa desde la deuda más antigua; se pierden los ajustes\n"
+"                            manuales de «Imputar»."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Se mantiene la división."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid ""
+"Se pierde toda la distribución del tablero: cada circuito queda\n"
+"                        en cero y se borra la imputación de todos los documentos. La\n"
+"                        acción queda registrada en el historial y se puede rehacer\n"
+"                        asignando de nuevo."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.esm.js:0
+msgid "Se requiere una planilla de cobranza válida para el tablero."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_receipt_proposal_event__sheet_id
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_sheet_close_confirm__sheet_id
+msgid "Sheet"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Sin"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.esm.js:0
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Sin asignar"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Sin distribuir"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Sin documentos de este circuito para el cliente."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Sin imputar"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Sin movimientos — soltá un valor acá"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Sin valores — soltá uno acá"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields.selection,name:collection_receipt_proposal.selection__collection_receipt_proposal_event__event_type__split
+msgid "Split"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-python
+#: code:addons/collection_receipt_proposal/models/collection_sheet.py:0
+msgid "Split undone"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.esm.js:0
+msgid "Tablero actualizado."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Tarjetas que se devuelven"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-python
+#: code:addons/collection_receipt_proposal/models/collection_sheet.py:0
+msgid "The amount cannot exceed %(maximum)s."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-python
+#: code:addons/collection_receipt_proposal/models/collection_sheet.py:0
+msgid "The amount must be greater than zero."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-python
+#: code:addons/collection_receipt_proposal/models/collection_sheet.py:0
+msgid "The circuit cannot apply more than its collected amount."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-python
+#: code:addons/collection_receipt_proposal/models/collection_assignment_report.py:0
+msgid "The receipt assignment report does not support mixed currencies."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-python
+#: code:addons/collection_receipt_proposal/models/collection_assignment_report.py:0
+msgid ""
+"The receipt assignment report is only available on collection sheets in "
+"proposal or closed."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model_terms:ir.ui.view,arch_db:collection_receipt_proposal.view_collection_sheet_close_confirm_form
+msgid ""
+"The receipt proposal board is not finished. Closing confirms\n"
+"                    every customer allocation as it stands now."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-python
+#: code:addons/collection_receipt_proposal/models/collection_sheet.py:0
+msgid ""
+"The receipt proposal board is only available on collection sheets in "
+"proposal."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-python
+#: code:addons/collection_receipt_proposal/models/collection_sheet.py:0
+msgid "This card is already in that circuit."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-python
+#: code:addons/collection_receipt_proposal/models/collection_allocation.py:0
+msgid "This customer is already closed on the board."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-python
+#: code:addons/collection_receipt_proposal/models/collection_sheet.py:0
+msgid "This customer is closed on the board. Reopen it first."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-python
+#: code:addons/collection_receipt_proposal/models/collection_allocation.py:0
+msgid "This customer is not closed on the board."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-python
+#: code:addons/collection_receipt_proposal/models/collection_sheet.py:0
+msgid "This payment voucher has no unassigned amount left."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-python
+#: code:addons/collection_receipt_proposal/models/collection_sheet.py:0
+msgid "This payment voucher is not split."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Tipo de valor"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Todavía no hay movimientos registrados."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Todo"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid ""
+"Todo el importe pasa a un único circuito. La reversión queda\n"
+"                        registrada en el historial con usuario, fecha y valores anteriores."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Todos"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Todos los comprobantes están asignados."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Todos los tipos"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid ""
+"Todos los valores asignados vuelven a Sin asignar, ordenados por\n"
+"                    tipo de comprobante. Las retenciones se quedan donde están."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields.selection,name:collection_receipt_proposal.selection__collection_receipt_proposal_event__event_type__transfer
+msgid "Transfer"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_helpers.esm.js:0
+msgid "Transferir parte"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_helpers.esm.js:0
+msgid "Transferir todo"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Transferir una parte"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-python
+#: code:addons/collection_receipt_proposal/models/collection_sheet.py:0
+msgid "Unassigned"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_sheet_close_confirm__pool_amount
+msgid "Unassigned Money"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_sheet_close_confirm__pool_count
+msgid "Unassigned Vouchers"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Unificar"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields.selection,name:collection_receipt_proposal.selection__collection_receipt_proposal_event__event_type__unify
+msgid "Unify"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_receipt_proposal_event__user_id
+msgid "User"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_receipt_proposal_event__value_from
+msgid "Value From"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_receipt_proposal_event__value_to
+msgid "Value To"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Vence"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Ver detalle de este circuito"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Ver historial del cliente"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_receipt_proposal_event__voucher_id
+msgid "Voucher"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-python
+#: code:addons/collection_receipt_proposal/models/collection_voucher.py:0
+msgid "Voucher customer must match the allocation customer."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Ya está en ese circuito. Elegí el otro para dividirlo."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Ya hay"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "cliente(s) en la planilla"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "comprobante(s)"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "de este comprobante acá."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "de la deuda cubierta"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.esm.js:0
+msgid "documentos"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "en ese circuito."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "en la planilla."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "i"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "más de lo cobrado en este circuito."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "partes"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "partes:"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "queda a favor."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "repartido en"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid ""
+"— el cierre no elimina saldos ni\n"
+"                    modifica imputaciones."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "— se reimputan"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "— sin"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "▲ Se imputaron"
+msgstr ""

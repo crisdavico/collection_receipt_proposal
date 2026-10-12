@@ -3,8 +3,9 @@
 ## Purpose
 
 While this addon is installed, one voucher MAY back more than one customer on the same
-proposal sheet. Cross-sheet splits stay forbidden. A sheet-wide amount cap and a
-largest-share owner pointer MUST keep voucher totals valid.
+proposal sheet. Cross-sheet splits stay forbidden. A sheet-wide amount cap MUST keep
+voucher totals valid; core counts each customer's collected money from its receipt
+values, so the largest-share owner pointer only names one owner.
 
 ## ADDED Requirements
 
@@ -49,12 +50,12 @@ the prior assigned total. After either, the voucher MUST have exactly one value 
 
 Proposal free amount MUST be `amount − assigned − replaced_amount`. A voucher whose free
 amount is `<=` 0 MUST NOT appear in the unassigned pool. `seller_deposit` remittance
-vouchers MUST NOT be pool-draggable and MUST NOT receive `allocation_id` from board owner
-sync. Replaced cash MUST keep its `allocation_id` after board mutations that do not
+vouchers ARE pool cards (draggable onto a circuit) but MUST NOT receive `allocation_id`
+from board owner sync. Replaced cash MUST keep its `allocation_id` after board mutations that do not
 assign a remaining free share. Largest-share owner and partner-identity relax MUST remain
 in this addon.
 (Previously: Free amount was `amount − assigned` only, so replaced cash reappeared in
-the pool and remittance could be dragged onto a customer.)
+the pool.)
 
 #### Scenario: Replaced cash leaves the pool
 
@@ -69,11 +70,11 @@ the pool and remittance could be dragged onto a customer.)
 - THEN free amount MUST be 60
 - AND the voucher MAY appear in the pool only for 60
 
-#### Scenario: Remittance is not pool-draggable
+#### Scenario: Remittance is pool-draggable but never owned
 
 - GIVEN a `seller_deposit` with free amount greater than zero
-- WHEN a board transfer from the pool targets a customer
-- THEN MUST refuse
+- WHEN a board transfer from the pool targets a customer circuit
+- THEN MUST succeed and that circuit's collected amount MUST include it
 - AND that voucher `allocation_id` MUST remain unset
 
 #### Scenario: Replaced cash keeps allocation_id

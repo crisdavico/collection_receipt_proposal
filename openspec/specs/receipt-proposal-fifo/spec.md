@@ -81,7 +81,12 @@ return without writing. Close MUST require a non-empty note when any circuit has
 difference (collected vs applied or pending). Reopen MUST clear the freeze so later
 recompute MAY write. `proposal_status` MUST be one of `sin_iniciar`, `parcial`,
 `conciliado`, `a_favor`, `deuda`, `cruce`, `cerrado`. Closed MUST use `cerrado`. The
-system MUST NOT reuse `collection.allocation.state` for this freeze.
+system MUST NOT reuse `collection.allocation.state` for this freeze. `proposal_closed`,
+`proposal_note`, `proposal_closed_uid`, and `proposal_closed_date` MUST be writable and
+creatable only inside the board's close/reopen scope (`collection_receipt_proposal_close`)
+and MUST be `copy=False`. Recompute and manual impute MUST write the documents whose
+`amount_applied` falls before the ones that rise, because core refuses a line write that
+raises a receipt's applications above its values.
 
 #### Scenario: Closed frozen
 
