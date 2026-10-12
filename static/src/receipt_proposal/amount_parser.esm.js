@@ -12,8 +12,8 @@
    `tests/amount_parser_test.js` checks it.
 
    The rules, for one decimal point D and one thousands separator T:
-   - a thousands separator is accepted only in valid groups: 1 to 3 digits,
-     then groups of exactly 3;
+   - a thousands separator is accepted only in valid groups: 1 to 3 digits
+     not starting with 0, then groups of exactly 3;
    - with both `.` and `,` present, the last one is the decimal point;
    - with a single kind of separator, it is the decimal point when it appears
      once and its last group is not exactly 3 digits (`500.50`);
@@ -73,7 +73,8 @@ function lastMarkIsDecimal(groups, seps, decimalPoint, thousandsSep) {
   return last === thousandsSep ? false : null;
 }
 
-/* The integer part's digits, or null when its grouping is not 1-3 then 3s. */
+/* The integer part's digits, or null when its grouping is not 1-3 then 3s. A
+   grouped number never starts with 0: `0.500` is not five hundred. */
 function integerDigits(groups, seps) {
   if (!seps.length) {
     return groups[0];
@@ -83,7 +84,10 @@ function integerDigits(groups, seps) {
   }
   const [head, ...tail] = groups;
   const valid =
-    head.length >= 1 && head.length <= 3 && tail.every((group) => group.length === 3);
+    head.length >= 1 &&
+    head.length <= 3 &&
+    !head.startsWith("0") &&
+    tail.every((group) => group.length === 3);
   return valid ? groups.join("") : null;
 }
 
