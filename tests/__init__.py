@@ -13,3 +13,4 @@ from . import test_receipt_assignment_report
 from . import test_receipt_assignment_xlsx
 from . import test_receipt_proposal_split_close
 from . import test_receipt_proposal_amount_parser
+from . import test_receipt_proposal_concurrency

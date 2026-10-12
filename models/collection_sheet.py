@@ -5,6 +5,7 @@ import math
 
 from odoo import api, models
 from odoo.exceptions import UserError
+from odoo.tools import SQL
 from odoo.tools.translate import _
 
 from .collection_allocation import DOCUMENT_KINDS, KIND_LABELS
@@ -169,6 +170,71 @@ class CollectionSheet(models.Model):
         self.ensure_one()
         if allocation and allocation.proposal_closed:
             raise UserError(_("This customer is closed on the board. Reopen it first."))
+
+    # ------------------------------------------------------------------
+    # Concurrency: two operators on one board
+    # ------------------------------------------------------------------
+
+    @api.private
+    def _proposal_lock(self, vouchers=None, allocations=None):
+        """Lock the vouchers and customer columns a move touches, then re-read.
+
+        Each transaction checks the sheet-wide split cap and the circuit
+        budget against its own snapshot, so two operators moving the free part
+        of the same voucher at the same moment could both pass and both
+        commit. Every mutating RPC therefore locks what it is about to touch
+        before it reads anything it validates: the vouchers whose money moves
+        and the allocations whose circuits are redistributed (a manual
+        imputation and a drop on the same circuit share only the column).
+        Rows are locked in id order, so two moves never deadlock.
+
+        The lock alone is not enough under Odoo's REPEATABLE READ: a
+        transaction that took its snapshot before the first one committed
+        would wait, then still read the old assignments. The no-op UPDATE
+        leaves each row updated by this transaction, so PostgreSQL refuses a
+        concurrent one with a serialization failure and Odoo's RPC layer
+        retries it on a fresh snapshot -- where the plan sees the money
+        already moved and refuses with its normal error. The cache is dropped
+        so nothing checked afterwards was read before the lock.
+        """
+        self.ensure_one()
+        self.env.flush_all()
+        for table, records in (
+            ("collection_voucher", vouchers),
+            ("collection_allocation", allocations),
+        ):
+            ids = tuple(sorted(set(records.ids))) if records else ()
+            if not ids:
+                continue
+            self.env.cr.execute(
+                SQL(
+                    "SELECT id FROM %s WHERE id IN %s ORDER BY id FOR UPDATE",
+                    SQL.identifier(table),
+                    ids,
+                )
+            )
+            self.env.cr.execute(
+                SQL(
+                    "UPDATE %s SET write_date = write_date WHERE id IN %s",
+                    SQL.identifier(table),
+                    ids,
+                )
+            )
+        self.env.invalidate_all(flush=False)
+
+    @api.private
+    def _proposal_lock_card(self, value_id=None, voucher_id=None, allocation_id=None):
+        """Lock a board card (or a pool voucher) plus a destination column."""
+        self.ensure_one()
+        if value_id:
+            value = self._proposal_value(value_id)
+            vouchers = value.voucher_id
+            allocations = value.receipt_id.allocation_id
+        else:
+            vouchers = self._proposal_voucher(voucher_id)
+            allocations = self.env["collection.allocation"]
+        allocations |= self._proposal_allocation(allocation_id, required=False)
+        self._proposal_lock(vouchers, allocations)
 
     # ------------------------------------------------------------------
     # Read surface
@@ -440,6 +506,7 @@ class CollectionSheet(models.Model):
         # `tests/test_receipt_proposal_actions.py` pins that they are ignored.
         del lines, changes
         sheet = self._require_proposal_sheet(sheet_id)
+        sheet._proposal_lock_card(value_id, voucher_id, to_allocation_id)
         plan = sheet._proposal_transfer_plan(
             value_id=value_id,
             voucher_id=voucher_id,
@@ -623,6 +690,7 @@ class CollectionSheet(models.Model):
         self, sheet_id=None, value_id=None, document_kind=None
     ):
         sheet = self._require_proposal_sheet(sheet_id)
+        sheet._proposal_lock_card(value_id=value_id)
         plan = sheet._proposal_circuit_plan(value_id, document_kind)
         voucher = plan["value"].voucher_id
         sheet._proposal_shrink_value(plan["value"], plan["amount"])
@@ -675,6 +743,10 @@ class CollectionSheet(models.Model):
         self, sheet_id=None, voucher_id=None, keep_value_id=None
     ):
         sheet = self._require_proposal_sheet(sheet_id)
+        voucher = sheet._proposal_voucher(voucher_id)
+        sheet._proposal_lock(
+            voucher, voucher.proposal_value_ids.receipt_id.allocation_id
+        )
         plan = sheet._proposal_undo_split_plan(voucher_id, keep_value_id)
         keep = plan["keep"]
         # Drop the other parts first so the sheet-wide cap never sees a
@@ -702,6 +774,7 @@ class CollectionSheet(models.Model):
         self, sheet_id=None, allocation_id=None, document_kind=None, lines=None
     ):
         sheet = self._require_proposal_sheet(sheet_id)
+        sheet._proposal_lock(allocations=sheet._proposal_allocation(allocation_id))
         allocation = sheet._proposal_allocation(allocation_id)
         sheet._proposal_ensure_column_open(allocation)
         kind = sheet._proposal_kind(document_kind)
@@ -813,6 +886,7 @@ class CollectionSheet(models.Model):
     @api.model
     def action_proposal_reset_vouchers(self, sheet_id=None):
         sheet = self._require_proposal_sheet(sheet_id)
+        sheet._proposal_lock(sheet.voucher_ids, sheet.allocation_ids)
         plan = sheet._proposal_reset_plan()
         values = plan["values"]
         if not values:
@@ -851,6 +925,7 @@ class CollectionSheet(models.Model):
         self, sheet_id=None, allocation_id=None, note=None
     ):
         sheet = self._require_proposal_sheet(sheet_id)
+        sheet._proposal_lock(allocations=sheet._proposal_allocation(allocation_id))
         allocation = sheet._proposal_allocation(allocation_id)
         allocation.action_proposal_close(note=note)
         return sheet._proposal_board_payload()
@@ -858,6 +933,7 @@ class CollectionSheet(models.Model):
     @api.model
     def action_proposal_reopen_customer(self, sheet_id=None, allocation_id=None):
         sheet = self._require_proposal_sheet(sheet_id)
+        sheet._proposal_lock(allocations=sheet._proposal_allocation(allocation_id))
         allocation = sheet._proposal_allocation(allocation_id)
         allocation.action_proposal_reopen()
         return sheet._proposal_board_payload()
