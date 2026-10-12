@@ -1446,10 +1446,15 @@ class TestReceiptProposalUi(TransactionCase):
         )
         self.assertEqual(action.name, "Receipt Proposal")
 
-    def test_module_ships_no_i18n_directory(self):
-        """RED/GREEN: Spanish copy is inline; no i18n/ PO files."""
+    def test_module_ships_es_ar_translations(self):
+        """The board copy is inline Spanish, but server messages are English.
+
+        Access, guard and money errors added by the production hardening are
+        English source strings, so es_AR users need the shipped catalog.
+        """
         addon = Path(__file__).resolve().parents[1]
-        self.assertFalse((addon / "i18n").exists())
+        self.assertTrue((addon / "i18n" / "es_AR.po").is_file())
+        self.assertTrue((addon / "i18n" / "collection_receipt_proposal.pot").is_file())
 
     def test_owl_templates_use_t_out(self):
         """RED/GREEN: Odoo 19 OWL templates use t-out, not deprecated t-esc."""
