@@ -443,9 +443,10 @@ Ground truth order: source under this directory → `../collection/AGENTS.md` �
   `action_open_document_review` and **before** `action_print_xlsx` —
   `collection/AGENTS.md` requires `action_print_xlsx` remain the last object button
   before `<field name="state">`.
-- **The client action carries no `path`.** `ir_act_client_path_unique` is a real UNIQUE
-  constraint and `collection.action_collection_document_review` already occupies the
-  empty string, so this action must omit the field (NULL) rather than write `''`.
+- **Client actions use unique, non-empty URL paths.** This board uses
+  `collection-reconciliation`; `collection.action_collection_document_review` uses
+  `collection-document-review`. Never set either path to `''`: client-action paths share
+  a UNIQUE constraint, and action paths must also be unique across action types.
 - **Events are immutable.** `create` only inside the `collection_receipt_proposal_event`
   privileged scope (`collection_common.privileged`, a contextvar), which only
   `collection.receipt.proposal.event._proposal_log` opens; it sets `user_id` and

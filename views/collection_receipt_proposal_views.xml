@@ -2,6 +2,7 @@
 <odoo>
     <record id="action_collection_receipt_proposal" model="ir.actions.client">
         <field name="name">Receipt Proposal</field>
+        <field name="path">collection-reconciliation</field>
         <field name="tag">collection_receipt_proposal.receipt_proposal</field>
     </record>
 

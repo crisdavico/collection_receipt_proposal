@@ -2203,14 +2203,18 @@ class TestReceiptProposalUi(TransactionCase):
             object_buttons.index("action_print_xlsx"),
         )
 
-    def test_client_action_record_claims_no_url_path(self):
-        """RED/GREEN: `path` stays unset; `ir_act_client_path_unique` forbids ''."""
+    def test_client_action_record_has_unique_url_path(self):
+        """The board has a named URL distinct from Document Review."""
         action = self.env.ref(
             "collection_receipt_proposal.action_collection_receipt_proposal"
         )
         self.assertEqual(action.type, "ir.actions.client")
         self.assertEqual(action.tag, "collection_receipt_proposal.receipt_proposal")
-        self.assertFalse(action.path)
+        self.assertEqual(action.path, "collection-reconciliation")
+        self.assertNotEqual(
+            action.path,
+            self.env.ref("collection.action_collection_document_review").path,
+        )
 
     def test_manifest_bundles_the_assets(self):
         """RED/GREEN: the OWL directory ships in `web.assets_backend`."""
