@@ -406,59 +406,17 @@ class TestReceiptAssignmentReport(ReceiptProposalCommon, TransactionCase):
             "receipt": receipt,
         }
 
-    def test_cash_replacement_rows_follow_the_receipt(self):
-        """RED/GREEN: the replacement ledger of a receipt rides in its block."""
+    def test_replaced_cash_still_reconciles_without_a_ledger(self):
+        """RED/GREEN: no ledger rows ride in the block; the recon still closes."""
         scenario = self._replacement_scenario()
-        customers = self._own_payload(scenario["sheet"])["customer_blocks"]
-        self.assertEqual(len(customers), 1)
-        block = customers[0]["circuits"][0]
-        self.assertEqual(len(block["cash_rows"]), 1)
-        row = block["cash_rows"][0]
-        self.assertEqual(row["cash_reference"], scenario["cash"].name)
-        self.assertEqual(row["deposit_reference"], scenario["deposit"].name)
-        self.assertEqual(row["direction"], "replace")
-        self.assertEqual(row["direction_label"], "Reemplazo")
-        self.assertEqual(row["amount"], 60.0)
-        self.assertEqual(row["created_by"], self.env.user.display_name)
-        self.assertTrue(row["created_at"])
-        self.assertEqual(block["subtotal_cash_amount"], 60.0)
-
-    def test_receipt_without_replacements_carries_an_empty_ledger(self):
-        """RED/GREEN: the key is always present so the builder need not branch."""
-        self._fund(self.allocation_a, self.voucher_a, 150.0)
-        circuit = self._block(self._payload(), self.name_a, "invoice")
-        self.assertEqual(circuit["cash_rows"], [])
-        self.assertEqual(circuit["subtotal_cash_amount"], 0.0)
-
-    def test_cash_map_groups_replacements_by_receipt(self):
-        """RED/GREEN: one search covers every receipt on the sheet."""
-        sheet, partner = self._own_sheet("ASG-CASH2")
-        cash = self._create_voucher(partner, sheet, amount=60.0, document_type="cash")
-        deposit = self._create_seller_deposit(sheet, amount=60.0)
-        self.assertTrue(deposit)
-        allocation = self._create_allocation(
-            sheet,
-            partner,
-            vouchers=cash,
-            lines=[
-                self._line_vals(invoice_balance=100.0),
-                self._line_vals(
-                    external_invoice_id="Q-1",
-                    invoice_number="PRE-9",
-                    invoice_balance=50.0,
-                    document_kind="quotation",
-                ),
-            ],
-        )
-        invoice = self._create_receipt(allocation, "invoice")
-        quotation = self._create_receipt(allocation, "quotation")
-        self._create_value(invoice, cash, 30.0)
-        self._create_value(quotation, cash, 30.0)
-        self._confirm(sheet)
-        cash_map = sheet._receipt_assignment_cash_map()
-        self.assertEqual(set(cash_map), {invoice.id, quotation.id})
-        self.assertEqual(len(cash_map[invoice.id]), 1)
-        self.assertEqual(len(cash_map[quotation.id]), 1)
+        payload = self._own_payload(scenario["sheet"])
+        self.assertEqual(len(payload["customer_blocks"]), 1)
+        block = payload["customer_blocks"][0]["circuits"][0]
+        self.assertNotIn("cash_rows", block)
+        self.assertNotIn("subtotal_cash_amount", block)
+        self.assertEqual(scenario["cash"].replaced_amount, 60.0)
+        self.assertEqual(payload["recon"]["replaced_total"], 60.0)
+        self.assertEqual(payload["recon"]["difference"], 0.0)
 
     # ------------------------------------------------------------------
     # Unassigned money and reconciliation

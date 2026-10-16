@@ -8,12 +8,11 @@ from odoo.exceptions import UserError
 from odoo.tools import SQL
 from odoo.tools.translate import _
 
-from .collection_allocation import DOCUMENT_KINDS, KIND_LABELS
+from .collection_allocation import DOCUMENT_KINDS
 
 _PROPOSAL_STATE = "proposal"
 _SELLER_DEPOSIT = "seller_deposit"
 _RETENTION = "retention_certificate"
-_EVENT_LIMIT = 200
 #: Set by the sheet form's Close button (and only there) to ask for the
 #: unfinished-board confirmation. A UX step, not a guard: without it Close
 #: behaves exactly as in `collection`, which raw state writes rely on.
@@ -311,7 +310,6 @@ class CollectionSheet(models.Model):
             ],
             "pool": self._proposal_pool_cards(currency),
             "document_types": self._proposal_document_types(),
-            "events": self._proposal_event_payload(),
         }
 
     @api.private
@@ -421,28 +419,6 @@ class CollectionSheet(models.Model):
                     "target": "new",
                 }
         return super().action_close()
-
-    @api.private
-    def _proposal_event_payload(self):
-        self.ensure_one()
-        events = self.env["collection.receipt.proposal.event"].search(
-            [("sheet_id", "=", self.id)], limit=_EVENT_LIMIT
-        )
-        return [
-            {
-                "id": event.id,
-                "allocation_id": event.allocation_id.id or False,
-                "voucher_id": event.voucher_id.id or False,
-                "event_type": event.event_type,
-                "name": event.name or "",
-                "description": event.description or "",
-                "value_from": event.value_from or "",
-                "value_to": event.value_to or "",
-                "user_name": event.user_id.display_name or "",
-                "event_date": event.event_date and str(event.event_date) or "",
-            }
-            for event in events
-        ]
 
     # ------------------------------------------------------------------
     # Preview surface (FIFO has exactly one implementation, in Python)
@@ -623,78 +599,13 @@ class CollectionSheet(models.Model):
         # Shrink the source first: growing the destination while the source
         # still holds the money would trip the sheet-wide split cap.
         sheet._proposal_shrink_value(plan["source_value"], moved)
-        merged = False
         if plan["target"]:
-            merged = sheet._proposal_grow_value(
+            sheet._proposal_grow_value(
                 plan["target"], plan["kind"], plan["voucher"], moved
             )
         sheet._proposal_sync_voucher_owner(plan["voucher"])
         sheet._proposal_recompute_deltas(plan["deltas"])
-        sheet._proposal_log_transfer(plan, merged)
         return sheet._proposal_board_payload()
-
-    @api.private
-    def _proposal_log_transfer(self, plan, merged):
-        self.ensure_one()
-        voucher = plan["voucher"]
-        target = plan["target"]
-        source = plan["source_allocation"]
-        if not target:
-            event_type = "transfer"
-            name = _("Card returned to the unassigned pool")
-            allocation = source
-        elif merged:
-            event_type = "unify"
-            name = _("Card merged into an existing card")
-            allocation = target
-        elif source and source == target:
-            event_type = "circuit"
-            name = _("Card moved to another circuit")
-            allocation = target
-        elif source:
-            partial = (
-                self._proposal_currency().compare_amounts(
-                    plan["amount"], plan["maximum"]
-                )
-                < 0
-            )
-            event_type = "split" if partial else "transfer"
-            name = _("Card transferred to another customer")
-            allocation = target
-        else:
-            event_type = "assign"
-            name = _("Payment voucher assigned from the pool")
-            allocation = target
-        self.env["collection.receipt.proposal.event"]._proposal_log(
-            self,
-            event_type,
-            name,
-            allocation_id=allocation,
-            voucher_id=voucher,
-            description=self._proposal_transfer_description(plan),
-            value_from=plan["maximum"],
-            value_to=plan["amount"],
-        )
-
-    @api.private
-    def _proposal_transfer_description(self, plan):
-        self.ensure_one()
-        source = plan["source_allocation"]
-        target = plan["target"]
-        return "{} -> {}".format(
-            self._proposal_pair_label(source, plan["source_kind"]),
-            self._proposal_pair_label(target, plan["kind"]),
-        )
-
-    @api.model
-    @api.private
-    def _proposal_pair_label(self, allocation, document_kind):
-        if not allocation:
-            return _("Unassigned")
-        partner = allocation.partner_id.display_name or ""
-        if not document_kind:
-            return partner
-        return f"{partner} / {KIND_LABELS[document_kind]}"
 
     @api.private
     def _proposal_shrink_value(self, value, amount):
@@ -803,16 +714,6 @@ class CollectionSheet(models.Model):
         )
         sheet._proposal_sync_voucher_owner(voucher)
         sheet._proposal_recompute_deltas(plan["deltas"])
-        sheet.env["collection.receipt.proposal.event"]._proposal_log(
-            sheet,
-            "circuit",
-            _("Card moved to another circuit"),
-            allocation_id=plan["allocation"],
-            voucher_id=voucher,
-            description=plan["allocation"].partner_id.display_name,
-            value_from=KIND_LABELS[plan["source_kind"]],
-            value_to=KIND_LABELS[plan["kind"]],
-        )
         return sheet._proposal_board_payload()
 
     @api.private
@@ -860,18 +761,6 @@ class CollectionSheet(models.Model):
         keep.amount = plan["total"]
         sheet._proposal_sync_voucher_owner(plan["voucher"])
         sheet._proposal_recompute_deltas(plan["deltas"])
-        sheet.env["collection.receipt.proposal.event"]._proposal_log(
-            sheet,
-            "unify",
-            _("Split undone"),
-            allocation_id=keep.receipt_id.allocation_id,
-            voucher_id=plan["voucher"],
-            description=sheet._proposal_pair_label(
-                keep.receipt_id.allocation_id, keep.receipt_id.document_kind
-            ),
-            value_from=len(plan["values"]),
-            value_to=1,
-        )
         return sheet._proposal_board_payload()
 
     @api.model
@@ -904,7 +793,6 @@ class CollectionSheet(models.Model):
             requested[line_id] = value
         if not requested:
             raise UserError(_("A valid document is required."))
-        before = sum(line.amount_applied or 0.0 for line in circuit_lines)
         after = sum(
             requested.get(line.id, line.amount_applied or 0.0) for line in circuit_lines
         )
@@ -923,15 +811,6 @@ class CollectionSheet(models.Model):
             > 0,
         ):
             by_id[line_id].amount_applied = value
-        sheet.env["collection.receipt.proposal.event"]._proposal_log(
-            sheet,
-            "impute",
-            _("Manual imputation to %(kind)s", kind=KIND_LABELS[kind]),
-            allocation_id=allocation,
-            description=allocation.partner_id.display_name,
-            value_from=before,
-            value_to=after,
-        )
         return sheet._proposal_board_payload()
 
     # ------------------------------------------------------------------
@@ -1002,7 +881,6 @@ class CollectionSheet(models.Model):
                 )
             )
         vouchers = plan["vouchers"]
-        cards = len(values)
         # Nothing grows here, so the sheet-wide split cap only ever sees the
         # assigned total going down -- the same order every mutation keeps.
         values.unlink()
@@ -1011,18 +889,6 @@ class CollectionSheet(models.Model):
         # Emptied circuits still have to be redistributed: FIFO on a budget of
         # zero is what clears `amount_applied` off every document.
         sheet._proposal_recompute_deltas(plan["deltas"])
-        sheet.env["collection.receipt.proposal.event"]._proposal_log(
-            sheet,
-            "reset",
-            _("Board reset to the unassigned pool"),
-            description=_(
-                "%(cards)s card(s) from %(customers)s customer(s)",
-                cards=cards,
-                customers=plan["customers"],
-            ),
-            value_from=plan["amount"],
-            value_to="0",
-        )
         return sheet._proposal_board_payload()
 
     @api.model

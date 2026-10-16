@@ -13,7 +13,6 @@ from odoo.addons.collection.models.collection_sheet_report import (
 )
 
 from .collection_allocation import DOCUMENT_KINDS
-from .collection_voucher import _local_datetime
 
 ASSIGNMENT_STATES = frozenset({"proposal", "closed"})
 KIND_TITLES = {"invoice": "Facturas", "quotation": "Presupuestos"}
@@ -37,7 +36,6 @@ VOUCHER_STATE_TITLES = {
     "validated_seller": "Validado por vendedor",
     "validated_collections": "Validado por cobranzas",
 }
-REPLACEMENT_TITLES = {"replace": "Reemplazo", "reverse": "Reversión"}
 # The workbook writes these columns in this order; `report/` imports them
 # rather than restating them, so producer and consumer cannot drift.
 SUMMARY_KEYS = ("collected", "applied", "on_account", "debt_total", "pending")
@@ -90,7 +88,7 @@ class CollectionAllocation(models.Model):
 
     @api.private
     def _receipt_assignment_entry(
-        self, document_kind, code, currency, *, receipt, labels, cash, percent
+        self, document_kind, code, currency, *, receipt, labels, percent
     ):
         """Summary row plus circuit block for one `(customer, circuit)` pair.
 
@@ -131,7 +129,6 @@ class CollectionAllocation(models.Model):
                 receipt,
                 currency,
                 labels,
-                cash,
                 percent,
                 name,
             ),
@@ -146,11 +143,10 @@ class CollectionAllocation(models.Model):
         receipt,
         currency,
         labels,
-        cash,
         percent,
         name,
     ):
-        """One simulated receipt: its documents, its vouchers by type, its moves.
+        """One simulated receipt: its documents and its vouchers by type.
 
         The sub-dicts carry disjoint keys, so they flatten into one block. A
         circuit with no receipt, or a receipt with neither values nor imputed
@@ -175,7 +171,6 @@ class CollectionAllocation(models.Model):
             "split_count": sum(item["split_count"] for item in blocks),
         }
         block.update(documents)
-        block.update(self._receipt_assignment_cash(cash))
         return block
 
     @api.private
@@ -233,27 +228,6 @@ class CollectionAllocation(models.Model):
             )
         return _voucher_blocks(grouped, labels)
 
-    @api.model
-    @api.private
-    def _receipt_assignment_cash(self, replacements):
-        """Cash-for-remittance moves recorded against one receipt, oldest first."""
-        rows = [
-            {
-                "cash_reference": row.cash_voucher_id.name or "",
-                "deposit_reference": row.deposit_voucher_id.name or "",
-                "amount": row.amount or 0.0,
-                "direction": row.direction or "",
-                "direction_label": _label(REPLACEMENT_TITLES, row.direction),
-                "created_by": row.created_by.display_name or "",
-                "created_at": _local_datetime(row, row.created_at),
-            }
-            for row in replacements
-        ]
-        return {
-            "cash_rows": rows,
-            "subtotal_cash_amount": sum(row["amount"] for row in rows),
-        }
-
 
 class CollectionSheet(models.Model):
     _inherit = "collection.sheet"
@@ -269,8 +243,8 @@ class CollectionSheet(models.Model):
         `Resumen` keeps one summary row per `(allocation, document_kind)` that
         holds money or documents. `Clientes` nests one block per customer, and
         inside it one block per circuit that has a receipt to simulate: the
-        documents it imputed, the vouchers that funded it grouped by type, any
-        cash a remittance replaced, and the circuit's balance. Every figure
+        documents it imputed, the vouchers that funded it grouped by type, and
+        the circuit's balance. Every figure
         comes from the board's own helpers so the workbook can never disagree
         with the screen.
         """
@@ -283,7 +257,6 @@ class CollectionSheet(models.Model):
         )
         labels = self._receipt_assignment_labels()
         receipt_map = self._receipt_assignment_receipt_map()
-        cash_map = self._receipt_assignment_cash_map()
         percent = self.commission_percent or 0.0
         empty_receipt = self.env["collection.receipt"]
         entries = []
@@ -301,7 +274,6 @@ class CollectionSheet(models.Model):
                     currency,
                     receipt=receipt,
                     labels=labels,
-                    cash=cash_map.get(receipt.id) or (),
                     percent=percent,
                 )
                 if not entry:
@@ -441,25 +413,6 @@ class CollectionSheet(models.Model):
         return {
             (receipt.allocation_id.id, receipt.document_kind): receipt
             for receipt in self.allocation_ids.receipt_ids
-        }
-
-    @api.private
-    def _receipt_assignment_cash_map(self):
-        """One search for the sheet's cash replacements, grouped by receipt.
-
-        `collection.receipt` has no inverse to `collection.cash.replacement`
-        (the one on `collection.voucher` keys on `cash_voucher_id`), so reading
-        them off each receipt would mean one search per receipt.
-        """
-        self.ensure_one()
-        receipts = self.allocation_ids.receipt_ids
-        if not receipts:
-            return {}
-        rows = self.env["collection.cash.replacement"].search(
-            [("receipt_id", "in", receipts.ids)], order="id"
-        )
-        return {
-            receipt.id: group for receipt, group in rows.grouped("receipt_id").items()
         }
 
     # ------------------------------------------------------------------

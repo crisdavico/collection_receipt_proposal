@@ -6,7 +6,6 @@ from . import test_receipt_proposal_order
 from . import test_receipt_proposal_split
 from . import test_receipt_proposal_board
 from . import test_receipt_proposal_actions
-from . import test_receipt_proposal_events
 from . import test_receipt_proposal_privileged
 from . import test_receipt_proposal_ui
 from . import test_receipt_assignment_report

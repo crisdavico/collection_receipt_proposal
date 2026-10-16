@@ -16,18 +16,6 @@ msgstr ""
 "Plural-Forms: \n"
 
 #. module: collection_receipt_proposal
-#. odoo-python
-#: code:addons/collection_receipt_proposal/models/collection_sheet.py:0
-msgid "%(cards)s card(s) from %(customers)s customer(s)"
-msgstr ""
-
-#. module: collection_receipt_proposal
-#. odoo-python
-#: code:addons/collection_receipt_proposal/models/collection_allocation.py:0
-msgid "%(partner)s - %(count)s document(s)"
-msgstr ""
-
-#. module: collection_receipt_proposal
 #. odoo-javascript
 #: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
 msgid "(requerida al cerrar con diferencias)"
@@ -104,11 +92,6 @@ msgid "A valid payment voucher is required."
 msgstr ""
 
 #. module: collection_receipt_proposal
-#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_receipt_proposal_event__allocation_id
-msgid "Allocation"
-msgstr ""
-
-#. module: collection_receipt_proposal
 #. odoo-python
 #: code:addons/collection_receipt_proposal/models/collection_allocation.py:0
 msgid "Allocation vouchers must share the allocation customer."
@@ -127,30 +110,8 @@ msgid "Arrastrá un valor sobre el circuito FAC o PRE del cliente."
 msgstr ""
 
 #. module: collection_receipt_proposal
-#: model:ir.model.fields.selection,name:collection_receipt_proposal.selection__collection_receipt_proposal_event__event_type__assign
-msgid "Assign"
-msgstr ""
-
-#. module: collection_receipt_proposal
-#: model:ir.model.fields.selection,name:collection_receipt_proposal.selection__collection_receipt_proposal_event__event_type__auto_impute
-msgid "Automatic Imputation"
-msgstr ""
-
-#. module: collection_receipt_proposal
-#. odoo-python
-#: code:addons/collection_receipt_proposal/models/collection_allocation.py:0
-msgid "Automatic imputation to %(kind)s (oldest debt first)"
-msgstr ""
-
-#. module: collection_receipt_proposal
 #: model_terms:ir.ui.view,arch_db:collection_receipt_proposal.view_collection_sheet_close_confirm_form
 msgid "Back to the Sheet"
-msgstr ""
-
-#. module: collection_receipt_proposal
-#. odoo-python
-#: code:addons/collection_receipt_proposal/models/collection_sheet.py:0
-msgid "Board reset to the unassigned pool"
 msgstr ""
 
 #. module: collection_receipt_proposal
@@ -190,30 +151,6 @@ msgid "Cancelar"
 msgstr ""
 
 #. module: collection_receipt_proposal
-#. odoo-python
-#: code:addons/collection_receipt_proposal/models/collection_sheet.py:0
-msgid "Card merged into an existing card"
-msgstr ""
-
-#. module: collection_receipt_proposal
-#. odoo-python
-#: code:addons/collection_receipt_proposal/models/collection_sheet.py:0
-msgid "Card moved to another circuit"
-msgstr ""
-
-#. module: collection_receipt_proposal
-#. odoo-python
-#: code:addons/collection_receipt_proposal/models/collection_sheet.py:0
-msgid "Card returned to the unassigned pool"
-msgstr ""
-
-#. module: collection_receipt_proposal
-#. odoo-python
-#: code:addons/collection_receipt_proposal/models/collection_sheet.py:0
-msgid "Card transferred to another customer"
-msgstr ""
-
-#. module: collection_receipt_proposal
 #. odoo-javascript
 #: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
 msgid "Cargando el tablero de conciliación…"
@@ -229,11 +166,6 @@ msgstr ""
 #. odoo-javascript
 #: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
 msgid "Cerrar cliente en la planilla"
-msgstr ""
-
-#. module: collection_receipt_proposal
-#: model:ir.model.fields.selection,name:collection_receipt_proposal.selection__collection_receipt_proposal_event__event_type__circuit
-msgid "Circuit"
 msgstr ""
 
 #. module: collection_receipt_proposal
@@ -287,11 +219,6 @@ msgstr ""
 #. odoo-javascript
 #: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
 msgid "Clientes con deuda"
-msgstr ""
-
-#. module: collection_receipt_proposal
-#: model:ir.model.fields.selection,name:collection_receipt_proposal.selection__collection_receipt_proposal_event__event_type__close
-msgid "Close"
 msgstr ""
 
 #. module: collection_receipt_proposal
@@ -363,11 +290,6 @@ msgid "Collection Receipt Assignment XLSX"
 msgstr ""
 
 #. module: collection_receipt_proposal
-#: model:ir.model,name:collection_receipt_proposal.model_collection_receipt_proposal_event
-msgid "Collection Receipt Proposal Event"
-msgstr ""
-
-#. module: collection_receipt_proposal
 #: model:ir.model,name:collection_receipt_proposal.model_collection_receipt_value
 msgid "Collection Receipt Value"
 msgstr ""
@@ -380,11 +302,6 @@ msgstr ""
 #. module: collection_receipt_proposal
 #: model:ir.model,name:collection_receipt_proposal.model_collection_sheet_close_confirm
 msgid "Collection Sheet Close Confirmation"
-msgstr ""
-
-#. module: collection_receipt_proposal
-#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_receipt_proposal_event__company_id
-msgid "Company"
 msgstr ""
 
 #. module: collection_receipt_proposal
@@ -412,13 +329,11 @@ msgid "Confirmar imputación"
 msgstr ""
 
 #. module: collection_receipt_proposal
-#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_receipt_proposal_event__create_uid
 #: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_sheet_close_confirm__create_uid
 msgid "Created by"
 msgstr ""
 
 #. module: collection_receipt_proposal
-#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_receipt_proposal_event__create_date
 #: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_sheet_close_confirm__create_date
 msgid "Created on"
 msgstr ""
@@ -440,18 +355,6 @@ msgid "Currency"
 msgstr ""
 
 #. module: collection_receipt_proposal
-#. odoo-python
-#: code:addons/collection_receipt_proposal/models/collection_allocation.py:0
-msgid "Customer closed on the board"
-msgstr ""
-
-#. module: collection_receipt_proposal
-#. odoo-python
-#: code:addons/collection_receipt_proposal/models/collection_allocation.py:0
-msgid "Customer reopened on the board"
-msgstr ""
-
-#. module: collection_receipt_proposal
 #: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_sheet_close_confirm__open_customer_count
 msgid "Customers Still Open"
 msgstr ""
@@ -461,11 +364,6 @@ msgstr ""
 #: code:addons/collection_receipt_proposal/models/collection_allocation.py:0
 msgid ""
 "Customers can only be closed or reopened from the receipt proposal board."
-msgstr ""
-
-#. module: collection_receipt_proposal
-#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_receipt_proposal_event__description
-msgid "Description"
 msgstr ""
 
 #. module: collection_receipt_proposal
@@ -507,7 +405,6 @@ msgstr ""
 #. module: collection_receipt_proposal
 #: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_allocation__display_name
 #: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_receipt_assignment_xlsx__display_name
-#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_receipt_proposal_event__display_name
 #: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_receipt_value__display_name
 #: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_sheet__display_name
 #: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_sheet_close_confirm__display_name
@@ -560,16 +457,6 @@ msgid "Emitida"
 msgstr ""
 
 #. module: collection_receipt_proposal
-#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_receipt_proposal_event__event_date
-msgid "Event Date"
-msgstr ""
-
-#. module: collection_receipt_proposal
-#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_receipt_proposal_event__event_type
-msgid "Event Type"
-msgstr ""
-
-#. module: collection_receipt_proposal
 #. odoo-python
 #: code:addons/collection_receipt_proposal/models/collection_sheet.py:0
 msgid ""
@@ -613,15 +500,8 @@ msgid "Hay documentos imputados por encima del saldo o del cobrado."
 msgstr ""
 
 #. module: collection_receipt_proposal
-#. odoo-javascript
-#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
-msgid "Historial"
-msgstr ""
-
-#. module: collection_receipt_proposal
 #: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_allocation__id
 #: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_receipt_assignment_xlsx__id
-#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_receipt_proposal_event__id
 #: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_receipt_value__id
 #: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_sheet__id
 #: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_sheet_close_confirm__id
@@ -666,24 +546,17 @@ msgid "Imputado a %s por encima del cobro"
 msgstr ""
 
 #. module: collection_receipt_proposal
-#: model:ir.model.fields.selection,name:collection_receipt_proposal.selection__collection_receipt_proposal_event__event_type__impute
-msgid "Impute"
-msgstr ""
-
-#. module: collection_receipt_proposal
 #. odoo-javascript
 #: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
 msgid "La planilla no tiene clientes con deuda cargada."
 msgstr ""
 
 #. module: collection_receipt_proposal
-#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_receipt_proposal_event__write_uid
 #: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_sheet_close_confirm__write_uid
 msgid "Last Updated by"
 msgstr ""
 
 #. module: collection_receipt_proposal
-#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_receipt_proposal_event__write_date
 #: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_sheet_close_confirm__write_date
 msgid "Last Updated on"
 msgstr ""
@@ -698,12 +571,6 @@ msgstr ""
 #. odoo-javascript
 #: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
 msgid "Los dos circuitos quedan conciliados sin diferencias."
-msgstr ""
-
-#. module: collection_receipt_proposal
-#. odoo-python
-#: code:addons/collection_receipt_proposal/models/collection_sheet.py:0
-msgid "Manual imputation to %(kind)s"
 msgstr ""
 
 #. module: collection_receipt_proposal
@@ -728,11 +595,6 @@ msgstr ""
 #. odoo-javascript
 #: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_helpers.esm.js:0
 msgid "Más sin imputar"
-msgstr ""
-
-#. module: collection_receipt_proposal
-#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_receipt_proposal_event__name
-msgid "Name"
 msgstr ""
 
 #. module: collection_receipt_proposal
@@ -824,12 +686,6 @@ msgstr ""
 #. module: collection_receipt_proposal
 #: model:ir.model,name:collection_receipt_proposal.model_collection_voucher
 msgid "Payment Voucher"
-msgstr ""
-
-#. module: collection_receipt_proposal
-#. odoo-python
-#: code:addons/collection_receipt_proposal/models/collection_sheet.py:0
-msgid "Payment voucher assigned from the pool"
 msgstr ""
 
 #. module: collection_receipt_proposal
@@ -930,24 +786,6 @@ msgid "Proposal Total Quotation"
 msgstr ""
 
 #. module: collection_receipt_proposal
-#. odoo-python
-#: code:addons/collection_receipt_proposal/models/collection_receipt_proposal_event.py:0
-msgid "Proposal events can only be created by the receipt proposal board."
-msgstr ""
-
-#. module: collection_receipt_proposal
-#. odoo-python
-#: code:addons/collection_receipt_proposal/models/collection_receipt_proposal_event.py:0
-msgid "Proposal events cannot be deleted."
-msgstr ""
-
-#. module: collection_receipt_proposal
-#. odoo-python
-#: code:addons/collection_receipt_proposal/models/collection_receipt_proposal_event.py:0
-msgid "Proposal events cannot be modified."
-msgstr ""
-
-#. module: collection_receipt_proposal
 #. odoo-javascript
 #: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
 msgid "Queda con"
@@ -994,19 +832,9 @@ msgid "Reconciled"
 msgstr ""
 
 #. module: collection_receipt_proposal
-#: model:ir.model.fields.selection,name:collection_receipt_proposal.selection__collection_receipt_proposal_event__event_type__reopen
-msgid "Reopen"
-msgstr ""
-
-#. module: collection_receipt_proposal
 #. odoo-python
 #: code:addons/collection_receipt_proposal/models/collection_sheet.py:0
 msgid "Reopen these customers before resetting the board: %(names)s"
-msgstr ""
-
-#. module: collection_receipt_proposal
-#: model:ir.model.fields.selection,name:collection_receipt_proposal.selection__collection_receipt_proposal_event__event_type__reset
-msgid "Reset"
 msgstr ""
 
 #. module: collection_receipt_proposal
@@ -1061,22 +889,11 @@ msgstr ""
 
 #. module: collection_receipt_proposal
 #. odoo-javascript
-#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
-msgid ""
-"Se pierde toda la distribución del tablero: cada circuito queda\n"
-"                        en cero y se borra la imputación de todos los documentos. La\n"
-"                        acción queda registrada en el historial y se puede rehacer\n"
-"                        asignando de nuevo."
-msgstr ""
-
-#. module: collection_receipt_proposal
-#. odoo-javascript
 #: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.esm.js:0
 msgid "Se requiere una planilla de cobranza válida para el tablero."
 msgstr ""
 
 #. module: collection_receipt_proposal
-#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_receipt_proposal_event__sheet_id
 #: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_sheet_close_confirm__sheet_id
 msgid "Sheet"
 msgstr ""
@@ -1122,17 +939,6 @@ msgstr ""
 #. odoo-javascript
 #: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
 msgid "Sin valores — soltá uno acá"
-msgstr ""
-
-#. module: collection_receipt_proposal
-#: model:ir.model.fields.selection,name:collection_receipt_proposal.selection__collection_receipt_proposal_event__event_type__split
-msgid "Split"
-msgstr ""
-
-#. module: collection_receipt_proposal
-#. odoo-python
-#: code:addons/collection_receipt_proposal/models/collection_sheet.py:0
-msgid "Split undone"
 msgstr ""
 
 #. module: collection_receipt_proposal
@@ -1239,21 +1045,7 @@ msgstr ""
 #. module: collection_receipt_proposal
 #. odoo-javascript
 #: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
-msgid "Todavía no hay movimientos registrados."
-msgstr ""
-
-#. module: collection_receipt_proposal
-#. odoo-javascript
-#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
 msgid "Todo"
-msgstr ""
-
-#. module: collection_receipt_proposal
-#. odoo-javascript
-#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
-msgid ""
-"Todo el importe pasa a un único circuito. La reversión queda\n"
-"                        registrada en el historial con usuario, fecha y valores anteriores."
 msgstr ""
 
 #. module: collection_receipt_proposal
@@ -1283,11 +1075,6 @@ msgid ""
 msgstr ""
 
 #. module: collection_receipt_proposal
-#: model:ir.model.fields.selection,name:collection_receipt_proposal.selection__collection_receipt_proposal_event__event_type__transfer
-msgid "Transfer"
-msgstr ""
-
-#. module: collection_receipt_proposal
 #. odoo-javascript
 #: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_helpers.esm.js:0
 msgid "Transferir parte"
@@ -1303,12 +1090,6 @@ msgstr ""
 #. odoo-javascript
 #: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
 msgid "Transferir una parte"
-msgstr ""
-
-#. module: collection_receipt_proposal
-#. odoo-python
-#: code:addons/collection_receipt_proposal/models/collection_sheet.py:0
-msgid "Unassigned"
 msgstr ""
 
 #. module: collection_receipt_proposal
@@ -1328,26 +1109,6 @@ msgid "Unificar"
 msgstr ""
 
 #. module: collection_receipt_proposal
-#: model:ir.model.fields.selection,name:collection_receipt_proposal.selection__collection_receipt_proposal_event__event_type__unify
-msgid "Unify"
-msgstr ""
-
-#. module: collection_receipt_proposal
-#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_receipt_proposal_event__user_id
-msgid "User"
-msgstr ""
-
-#. module: collection_receipt_proposal
-#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_receipt_proposal_event__value_from
-msgid "Value From"
-msgstr ""
-
-#. module: collection_receipt_proposal
-#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_receipt_proposal_event__value_to
-msgid "Value To"
-msgstr ""
-
-#. module: collection_receipt_proposal
 #. odoo-javascript
 #: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
 msgid "Vence"
@@ -1357,17 +1118,6 @@ msgstr ""
 #. odoo-javascript
 #: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
 msgid "Ver detalle de este circuito"
-msgstr ""
-
-#. module: collection_receipt_proposal
-#. odoo-javascript
-#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
-msgid "Ver historial del cliente"
-msgstr ""
-
-#. module: collection_receipt_proposal
-#: model:ir.model.fields,field_description:collection_receipt_proposal.field_collection_receipt_proposal_event__voucher_id
-msgid "Voucher"
 msgstr ""
 
 #. module: collection_receipt_proposal

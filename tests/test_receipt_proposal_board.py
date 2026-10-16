@@ -5,8 +5,6 @@ from odoo.exceptions import AccessError, UserError
 from odoo.fields import Command
 from odoo.tests import TransactionCase
 
-from odoo.addons.collection.models.collection_common import privileged
-
 from .common import ReceiptProposalCommon
 
 _DOCUMENT_KEYS = {
@@ -29,18 +27,6 @@ _POOL_KEYS = {
     "free_amount",
     "partner_id",
     "partner_name",
-}
-_EVENT_KEYS = {
-    "id",
-    "allocation_id",
-    "voucher_id",
-    "event_type",
-    "name",
-    "description",
-    "value_from",
-    "value_to",
-    "user_name",
-    "event_date",
 }
 _PREVIEW_KEYS = {
     "allocation_id",
@@ -69,25 +55,19 @@ class TestReceiptProposalBoard(ReceiptProposalCommon, TransactionCase):
             [("receipt_id.sheet_id", "=", self.sheet.id)]
         )
         lines = self.sheet.allocation_ids.mapped("line_ids")
-        events = self.env["collection.receipt.proposal.event"].search(
-            [("sheet_id", "=", self.sheet.id)]
-        )
         return {
             "values": {value.id: value.amount for value in values},
             "value_ids": set(values.ids),
             "applied": {line.id: line.amount_applied for line in lines},
-            "event_ids": set(events.ids),
         }
 
     def _assert_money_unchanged(self, before):
         self.assertEqual(self._snapshot_money(), before)
 
     def test_board_payload_shape(self):
-        """RED/GREEN: sheet, columns, pool and events are all present."""
+        """RED/GREEN: sheet, columns, pool and document types are all present."""
         board = self.Sheet.get_proposal_board(self.sheet.id)
-        self.assertEqual(
-            set(board), {"sheet", "columns", "pool", "document_types", "events"}
-        )
+        self.assertEqual(set(board), {"sheet", "columns", "pool", "document_types"})
         self.assertEqual(
             set(board["sheet"]),
             {"id", "name", "state", "currency", "editable"},
@@ -322,31 +302,6 @@ class TestReceiptProposalBoard(ReceiptProposalCommon, TransactionCase):
         self.assertEqual(
             [entry["label"] for entry in types], [selection[code] for code in codes]
         )
-
-    def test_event_payload_shape(self):
-        """RED/GREEN: events[] carries the board audit keys, newest first."""
-        Event = self.env["collection.receipt.proposal.event"]
-        with privileged("collection_receipt_proposal_event"):
-            older = Event.create(
-                {
-                    "sheet_id": self.sheet.id,
-                    "event_type": "assign",
-                    "name": "Older event",
-                }
-            )
-            newer = Event.create(
-                {
-                    "sheet_id": self.sheet.id,
-                    "event_type": "transfer",
-                    "name": "Newer event",
-                }
-            )
-        board = self.Sheet.get_proposal_board(self.sheet.id)
-        self.assertGreaterEqual(len(board["events"]), 2)
-        self.assertEqual(set(board["events"][0]), _EVENT_KEYS)
-        self.assertEqual(board["events"][0]["id"], newer.id)
-        self.assertEqual(board["events"][1]["id"], older.id)
-        self.assertEqual(board["events"][0]["event_type"], "transfer")
 
     def test_require_proposal_sheet_rejects_non_integers(self):
         """RED/GREEN: the injected sheet id is re-validated on every call."""

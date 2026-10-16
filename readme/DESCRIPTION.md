@@ -43,25 +43,24 @@ Applications page and its stored `document_numbers` summary always name document
 order the money followed.
 
 The board writes into the existing `collection.*` models only — it stores the validated
-proposal and never touches Odoo accounting. Every operation is recorded on the immutable
-`collection.receipt.proposal.event` model with user, timestamp and from → to values.
-Customers can be closed individually (a note is required when a circuit still shows a
-difference); a closed customer freezes and later redistributions skip it. The close
-state, note, closer and date change only through the board's close and reopen actions.
+proposal and never touches Odoo accounting. Customers can be closed individually (a note
+is required when a circuit still shows a difference); a closed customer freezes and
+later redistributions skip it. The close state, note, closer and date change only
+through the board's close and reopen actions.
 
-The board, its export and its event history belong to Collections Users; a plain
-internal user can neither read nor change them. Amounts typed on the board are read in
-the user's own number format: a thousands separator counts only in groups of three
-digits, and anything ambiguous is refused rather than guessed, so `500.50` typed on an
-`es_AR` board never becomes fifty thousand. A retention certificate is tax the customer
-withheld on their own documents, so it moves only between that customer's invoice and
-quotation circuits, never to the pool or to another customer. Two operators can work the
-same board: every move locks the vouchers and customers it touches, so a concurrent move
-is retried on fresh data and refused normally instead of over-assigning a voucher. Money
-split across customers counts for each of them by its share, so Close and the Planilla
-agree with the board. When the board still holds money in the pool or customers that are
-not closed, the sheet's Close button asks a Collections Manager to confirm, listing the
-pending pool money, its voucher count and the open customers; it warns and never blocks.
+The board and its export belong to Collections Users; a plain internal user can neither
+read nor change them. Amounts typed on the board are read in the user's own number
+format: a thousands separator counts only in groups of three digits, and anything
+ambiguous is refused rather than guessed, so `500.50` typed on an `es_AR` board never
+becomes fifty thousand. A retention certificate is tax the customer withheld on their
+own documents, so it moves only between that customer's invoice and quotation circuits,
+never to the pool or to another customer. Two operators can work the same board: every
+move locks the vouchers and customers it touches, so a concurrent move is retried on
+fresh data and refused normally instead of over-assigning a voucher. Money split across
+customers counts for each of them by its share, so Close and the Planilla agree with the
+board. When the board still holds money in the pool or customers that are not closed,
+the sheet's Close button asks a Collections Manager to confirm, listing the pending pool
+money, its voucher count and the open customers; it warns and never blocks.
 
 The proposal can leave Odoo as a spreadsheet: the header button **Exportar
 Asignaciones** (visible on a sheet in `proposal` and on the `closed` sheet afterwards)
