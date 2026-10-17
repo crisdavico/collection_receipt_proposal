@@ -45,7 +45,7 @@ Ground truth order: source under this directory â†’ `../collection/AGENTS.md` â†
 | `models/collection_sheet.py`                       | `action_open_receipt_proposal` + the whole board RPC surface; row locks; Close confirmation hook          |
 | `models/collection_assignment_report.py`           | Asignaciones payload + `action_print_receipt_assignment_xlsx`; customer/circuit blocks, unassigned, recon |
 | `report/collection_receipt_assignment_xlsx.py`     | ORM-free xlsxwriter builder (`Resumen` + `Clientes`); formats reused from `collection`                    |
-| `security/ir.model.access.csv`                     | Event `1,0,1,0` for Collections User; close-confirm wizard `1,1,1,0` for Collections Manager              |
+| `security/ir.model.access.csv`                     | Close-confirm wizard `1,1,1,0` for Collections Manager                                                    |
 | `views/collection_receipt_proposal_views.xml`      | `ir.actions.client` + the two inherited sheet-form header buttons                                         |
 | `static/src/receipt_proposal/`                     | OWL client action (two-column board), pure helpers, templates, scoped SCSS                                |
 | `static/src/receipt_proposal/amount_parser.esm.js` | Import-free, locale-aware `parseAmount` / `rawAmount` (run in Node by the test suite)                     |
