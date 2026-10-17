@@ -8,7 +8,9 @@ from odoo.exceptions import UserError
 from odoo.tools import SQL
 from odoo.tools.translate import _
 
-from .collection_allocation import DOCUMENT_KINDS
+from odoo.addons.collection.models.collection_common import privileged
+
+from .collection_allocation import DOCUMENT_KINDS, PROPOSAL_CLOSE_SCOPE
 
 _PROPOSAL_STATE = "proposal"
 _SELLER_DEPOSIT = "seller_deposit"
@@ -419,6 +421,21 @@ class CollectionSheet(models.Model):
                     "target": "new",
                 }
         return super().action_close()
+
+    def action_reset_to_open(self):
+        """Reset to Open also reopens every customer closed on the board."""
+        closed = self.allocation_ids.filtered("proposal_closed")
+        result = super().action_reset_to_open()
+        if closed:
+            with privileged(PROPOSAL_CLOSE_SCOPE):
+                closed.write(
+                    {
+                        "proposal_closed": False,
+                        "proposal_closed_uid": False,
+                        "proposal_closed_date": False,
+                    }
+                )
+        return result
 
     # ------------------------------------------------------------------
     # Preview surface (FIFO has exactly one implementation, in Python)
