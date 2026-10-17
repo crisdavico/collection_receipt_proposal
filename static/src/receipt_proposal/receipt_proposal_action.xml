@@ -325,7 +325,7 @@
           class="icon-btn detail-btn"
           type="button"
           title="Conciliación del cliente"
-          t-on-click="() => this.openDrawer(column.allocation_id, 'conc')"
+          t-on-click="() => this.openDrawer(column.allocation_id)"
         >
                     <svg
             viewBox="0 0 16 16"
@@ -736,13 +736,6 @@
       >
                 Deshacer división
             </button>
-            <hr />
-            <button
-        type="button"
-        t-on-click="() => this.openDrawer(state.menu.allocation_id, 'hist')"
-      >
-                Ver historial del cliente
-            </button>
         </div>
     </t>
 
@@ -1113,8 +1106,7 @@
                 <div class="note info">
                     <b>i</b>
                     <span>
-                        Todo el importe pasa a un único circuito. La reversión queda
-                        registrada en el historial con usuario, fecha y valores anteriores.
+                        Todo el importe pasa a un único circuito.
                     </span>
                 </div>
                 <t t-set="previewCircuits" t-value="true" />
@@ -1237,9 +1229,8 @@
                     <b>!</b>
                     <span>
                         Se pierde toda la distribución del tablero: cada circuito queda
-                        en cero y se borra la imputación de todos los documentos. La
-                        acción queda registrada en el historial y se puede rehacer
-                        asignando de nuevo.
+                        en cero y se borra la imputación de todos los documentos. Se
+                        puede rehacer asignando de nuevo.
                     </span>
                 </div>
             </div>
@@ -1277,121 +1268,74 @@
                         ✕
                     </button>
                 </div>
-                <div class="tabs">
-                    <button
-            type="button"
-            t-attf-class="{{ state.drawer.tab === 'conc' ? 'on' : '' }}"
-            t-on-click="() => this.setDrawerTab('conc')"
-          >
-                        Conciliación
-                    </button>
-                    <button
-            type="button"
-            t-attf-class="{{ state.drawer.tab === 'hist' ? 'on' : '' }}"
-            t-on-click="() => this.setDrawerTab('hist')"
-          >
-                        Historial
-                    </button>
-                </div>
             </div>
             <div class="drawer-body">
-                <t t-if="state.drawer.tab === 'conc'">
-                    <t t-set="totals" t-value="drawerTotals(drawerColumn)" />
-                    <div class="dprog">
-                        <div class="dprog-head">
-                            <div class="dprog-fig">
-                                <em>Cobrado</em>
-                                <b class="pos" t-out="fmt(totals.collected)" />
-                            </div>
-                            <div class="dprog-fig right">
-                                <em>Deuda total</em>
-                                <b t-out="fmt(totals.debt)" />
-                            </div>
+                <t t-set="totals" t-value="drawerTotals(drawerColumn)" />
+                <div class="dprog">
+                    <div class="dprog-head">
+                        <div class="dprog-fig">
+                            <em>Cobrado</em>
+                            <b class="pos" t-out="fmt(totals.collected)" />
                         </div>
-                        <div
-              class="dprog-bar"
-              role="progressbar"
-              aria-valuemin="0"
-              aria-valuemax="100"
-              t-att-aria-valuenow="totals.percent"
-              t-att-aria-label="'Cobrado sobre la deuda total del cliente'"
-            >
-                            <span
-                t-attf-class="fill {{ totals.percent >= 100 ? 'full' : '' }} {{ totals.percent > 100 ? 'over' : '' }}"
-                t-attf-style="width: {{ totals.fill }}%"
-              />
-                        </div>
-                        <div class="dprog-foot">
-                            <span>
-                                <b t-out="totals.percent + '%'" /> de la deuda cubierta
-                            </span>
-                            <span t-if="totals.percent > 100" class="over-note">
-                                Cobrado por encima de la deuda
-                            </span>
+                        <div class="dprog-fig right">
+                            <em>Deuda total</em>
+                            <b t-out="fmt(totals.debt)" />
                         </div>
                     </div>
-                    <t t-foreach="circuitKeys" t-as="kind" t-key="kind">
-                        <div class="section-title">
-                            <span
-                t-attf-class="ct {{ circuitClass(kind) }}"
-                t-out="circuits[kind].tag"
-              />
-                            <t t-out="circuits[kind].Noun" />
-                        </div>
-                        <div class="trace">
-                            <div
-                t-foreach="drawerColumn.documents[kind]"
-                t-as="row"
-                t-key="row.line_id"
-                class="trow"
-              >
-                                <div class="th">
-                                    <span class="doc" t-out="row.number" />
-                                    <span class="dt" t-out="row.due_date" />
-                                    <span class="amt">
-                                        <t t-out="fmt(row.applied)" />
-                                        <i t-out="' / ' + fmtShort(row.balance)" />
-                                    </span>
-                                </div>
+                    <div
+            class="dprog-bar"
+            role="progressbar"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            t-att-aria-valuenow="totals.percent"
+            t-att-aria-label="'Cobrado sobre la deuda total del cliente'"
+          >
+                        <span
+              t-attf-class="fill {{ totals.percent >= 100 ? 'full' : '' }} {{ totals.percent > 100 ? 'over' : '' }}"
+              t-attf-style="width: {{ totals.fill }}%"
+            />
+                    </div>
+                    <div class="dprog-foot">
+                        <span>
+                            <b t-out="totals.percent + '%'" /> de la deuda cubierta
+                        </span>
+                        <span t-if="totals.percent > 100" class="over-note">
+                            Cobrado por encima de la deuda
+                        </span>
+                    </div>
+                </div>
+                <t t-foreach="circuitKeys" t-as="kind" t-key="kind">
+                    <div class="section-title">
+                        <span
+              t-attf-class="ct {{ circuitClass(kind) }}"
+              t-out="circuits[kind].tag"
+            />
+                        <t t-out="circuits[kind].Noun" />
+                    </div>
+                    <div class="trace">
+                        <div
+              t-foreach="drawerColumn.documents[kind]"
+              t-as="row"
+              t-key="row.line_id"
+              class="trow"
+            >
+                            <div class="th">
+                                <span class="doc" t-out="row.number" />
+                                <span class="dt" t-out="row.due_date" />
+                                <span class="amt">
+                                    <t t-out="fmt(row.applied)" />
+                                    <i t-out="' / ' + fmtShort(row.balance)" />
+                                </span>
                             </div>
-                            <p t-if="!drawerColumn.documents[kind].length" class="hint">
-                                Sin <t t-out="circuits[kind].noun" /> en la planilla.
-                            </p>
                         </div>
-                    </t>
-                    <t t-if="drawerColumn.closed and drawerColumn.note">
-                        <div class="section-title">Observación de cierre</div>
-                        <div class="note" t-out="drawerColumn.note" />
-                    </t>
+                        <p t-if="!drawerColumn.documents[kind].length" class="hint">
+                            Sin <t t-out="circuits[kind].noun" /> en la planilla.
+                        </p>
+                    </div>
                 </t>
-                <t t-else="">
-                    <ul class="hist">
-                        <li t-foreach="drawerEvents" t-as="event" t-key="event.id">
-                            <span
-                t-attf-class="bullet {{ eventBullet(event.event_type) }}"
-              />
-                            <div>
-                                <div class="what" t-out="event.name" />
-                                <div class="meta">
-                                    <t t-out="event.event_date" /> ·
-                                    <t t-out="event.user_name" />
-                                    <t t-if="event.description">
-                                        · <t t-out="event.description" />
-                                    </t>
-                                </div>
-                                <div
-                  t-if="event.value_from or event.value_to"
-                  class="delta"
-                >
-                                    <s t-out="event.value_from" /> →
-                                    <t t-out="event.value_to" />
-                                </div>
-                            </div>
-                        </li>
-                        <li t-if="!drawerEvents.length" class="hint">
-                            Todavía no hay movimientos registrados.
-                        </li>
-                    </ul>
+                <t t-if="drawerColumn.closed and drawerColumn.note">
+                    <div class="section-title">Observación de cierre</div>
+                    <div class="note" t-out="drawerColumn.note" />
                 </t>
             </div>
             <div class="rp-modal-foot">

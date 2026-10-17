@@ -10,9 +10,8 @@ from odoo.tools.translate import _
 from odoo.addons.collection.models.collection_common import is_privileged, privileged
 
 DOCUMENT_KINDS = ("invoice", "quotation")
-KIND_LABELS = {"invoice": "Invoices", "quotation": "Quotations"}
 # Per-customer close state. Only the board's close/reopen actions write it,
-# inside this privileged scope, so the note rule and the event log always run.
+# inside this privileged scope, so the note rule always runs.
 PROPOSAL_CLOSE_SCOPE = "collection_receipt_proposal_close"
 PROPOSAL_CLOSE_FIELDS = frozenset(
     {
@@ -343,29 +342,7 @@ class CollectionAllocation(models.Model):
         for groups in (falling, rising):
             for amount, line_ids in groups.items():
                 Line.browse(line_ids).amount_applied = amount
-        self._proposal_log_recompute(document_kind, preview)
         return preview
-
-    @api.private
-    def _proposal_log_recompute(self, document_kind, preview):
-        self.ensure_one()
-        moved = len(preview["changes"])
-        self.env["collection.receipt.proposal.event"]._proposal_log(
-            self.sheet_id,
-            "auto_impute",
-            _(
-                "Automatic imputation to %(kind)s (oldest debt first)",
-                kind=KIND_LABELS[document_kind],
-            ),
-            allocation_id=self,
-            description=_(
-                "%(partner)s - %(count)s document(s)",
-                partner=self.partner_id.display_name,
-                count=moved,
-            ),
-            value_from=sum(change["from"] for change in preview["changes"]),
-            value_to=sum(change["to"] for change in preview["changes"]),
-        )
 
     @api.private
     def _proposal_recompute_kinds(self, document_kinds):
@@ -418,15 +395,6 @@ class CollectionAllocation(models.Model):
                     "proposal_closed_date": fields.Datetime.now(),
                 }
             )
-        self.env["collection.receipt.proposal.event"]._proposal_log(
-            self.sheet_id,
-            "close",
-            _("Customer closed on the board"),
-            allocation_id=self,
-            description=note or self.partner_id.display_name,
-            value_from="open",
-            value_to="closed",
-        )
         return True
 
     def action_proposal_reopen(self):
@@ -442,15 +410,6 @@ class CollectionAllocation(models.Model):
                     "proposal_closed_date": False,
                 }
             )
-        self.env["collection.receipt.proposal.event"]._proposal_log(
-            self.sheet_id,
-            "reopen",
-            _("Customer reopened on the board"),
-            allocation_id=self,
-            description=self.partner_id.display_name,
-            value_from="closed",
-            value_to="open",
-        )
         return True
 
     # ------------------------------------------------------------------

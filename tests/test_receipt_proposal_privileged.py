@@ -1,9 +1,9 @@
 # Copyright 2026 Seedian
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl).
-"""Board events and close fields trust an in-process scope, not context keys.
+"""Close fields trust an in-process scope, not context keys.
 
 JSON-RPC and muk_mcp both merge a caller-supplied ``context``, so a forged key
-must not let a Collections User write the audit trail or the close fields.
+must not let a Collections User write the close fields.
 """
 
 from odoo.exceptions import UserError
@@ -11,12 +11,8 @@ from odoo.tests import TransactionCase
 
 from .common import ReceiptProposalCommon
 
-_EVENT_MODEL = "collection.receipt.proposal.event"
 _CLOSE_GUARD_MESSAGE = (
     "Customers can only be closed or reopened from the receipt proposal board."
-)
-_EVENT_GUARD_MESSAGE = (
-    "Proposal events can only be created by the receipt proposal board."
 )
 _CLOSE_FIELD_WRITES = (
     {"proposal_closed": True},
@@ -26,7 +22,7 @@ _CLOSE_FIELD_WRITES = (
 
 
 class TestReceiptProposalPrivileged(ReceiptProposalCommon, TransactionCase):
-    """Forged keys MUST NOT write board events or per-customer close fields."""
+    """Forged keys MUST NOT write per-customer close fields."""
 
     def setUp(self):
         super().setUp()
@@ -39,46 +35,6 @@ class TestReceiptProposalPrivileged(ReceiptProposalCommon, TransactionCase):
         self.other = self._create_user(
             "prop_scope_other", "collection.group_collection_user"
         )
-
-    def _sheet_events(self):
-        return self.env[_EVENT_MODEL].search([("sheet_id", "=", self.sheet.id)])
-
-    def test_forged_event_key_cannot_write_the_audit_trail(self):
-        before = self._sheet_events()
-        Event = (
-            self.env[_EVENT_MODEL]
-            .with_user(self.operator)
-            .with_context(collection_receipt_proposal_event=True)
-        )
-        with self.assertRaises(UserError) as error:
-            Event.create(
-                {
-                    "sheet_id": self.sheet.id,
-                    "allocation_id": self.allocation.id,
-                    "event_type": "close",
-                    "name": "Forged close",
-                    "user_id": self.other.id,
-                    "event_date": "2020-01-01 00:00:00",
-                }
-            )
-        self.assertIs(type(error.exception), UserError)
-        self.assertEqual(str(error.exception), _EVENT_GUARD_MESSAGE)
-        self.assertEqual(self._sheet_events(), before)
-
-    def test_board_events_ignore_forged_default_context_keys(self):
-        """A legitimate board call MUST NOT log under a caller-chosen author."""
-        before = self._sheet_events()
-        self.allocation.with_user(self.operator).with_context(
-            default_user_id=self.other.id,
-            default_event_date="2020-01-01 00:00:00",
-            default_description="Forged description",
-        ).action_proposal_close(note="Checked")
-        event = self._sheet_events() - before
-        self.assertEqual(len(event), 1)
-        self.assertEqual(event.event_type, "close")
-        self.assertEqual(event.user_id, self.operator)
-        self.assertEqual(event.description, "Checked")
-        self.assertGreater(event.event_date.year, 2020)
 
     def _assert_close_guard(self, error):
         """The board's own guard refused, not an ACL or a field-groups check.
@@ -139,7 +95,7 @@ class TestReceiptProposalPrivileged(ReceiptProposalCommon, TransactionCase):
         self.assertFalse(copy.proposal_closed_uid)
         self.assertFalse(copy.proposal_closed_date)
 
-    def test_board_close_and_reopen_still_write_and_log(self):
+    def test_board_close_and_reopen_still_write(self):
         allocation = self.allocation.with_user(self.operator)
         allocation.action_proposal_close(note="Checked with the seller")
         self.assertTrue(self.allocation.proposal_closed)
@@ -150,9 +106,3 @@ class TestReceiptProposalPrivileged(ReceiptProposalCommon, TransactionCase):
         self.assertFalse(self.allocation.proposal_closed)
         self.assertFalse(self.allocation.proposal_closed_uid)
         self.assertFalse(self.allocation.proposal_closed_date)
-        events = self._sheet_events().filtered(
-            lambda event: event.event_type in ("close", "reopen")
-            and event.allocation_id == self.allocation
-        )
-        self.assertEqual(set(events.mapped("event_type")), {"close", "reopen"})
-        self.assertEqual(events.user_id, self.operator)

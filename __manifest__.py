@@ -2,14 +2,13 @@
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl).
 {
     "name": "Collection Receipt Proposal",
-    "version": "19.0.1.6.0",
+    "version": "19.0.1.7.0",
     "category": "Sales/CRM",
     "summary": "Drag-and-drop reconciliation board for collection sheets",
     "author": "Seedian",
     "website": "https://seedian.ai",
     "depends": ["collection"],
     "data": [
-        "security/collection_receipt_proposal_security.xml",
         "security/ir.model.access.csv",
         "views/collection_receipt_proposal_views.xml",
         "wizard/collection_sheet_close_confirm_views.xml",

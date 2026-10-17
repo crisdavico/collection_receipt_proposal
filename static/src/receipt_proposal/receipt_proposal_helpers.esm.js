@@ -79,16 +79,6 @@ export const SORT_ORDERS = [
 
 const SORT_FIELDS = {debt: "total", collected: "collected", pending: "available"};
 
-const EVENT_BULLETS = {
-  auto_impute: "ok",
-  impute: "ok",
-  reset: "warn",
-  close: "warn",
-  reopen: "warn",
-  circuit: "inv",
-  split: "quo",
-};
-
 /* Los ocho `collection.voucher.document_type`. El glifo es un canal de FORMA,
    no de color: el color de una tarjeta ya significa circuito (FAC / PRE), que
    es lo que limita a qué documentos puede imputarse su importe. Un tipo sin
@@ -341,10 +331,6 @@ export function coverageOf(collected, total) {
    `.t-unsupported`, que es el gris de la casa. */
 export function typeClass(documentType) {
   return `t-${glyphOf(documentType)}`;
-}
-
-export function eventBullet(eventType) {
-  return EVENT_BULLETS[eventType] || "";
 }
 
 /* Redondea a los decimales de la moneda. La aritmética de flotantes deja

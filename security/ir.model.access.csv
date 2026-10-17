@@ -1,3 +1,2 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_collection_receipt_proposal_event_user,collection.receipt.proposal.event.user,model_collection_receipt_proposal_event,collection.group_collection_user,1,0,1,0
 access_collection_sheet_close_confirm_manager,collection.sheet.close.confirm.manager,model_collection_sheet_close_confirm,collection.group_collection_manager,1,1,1,0

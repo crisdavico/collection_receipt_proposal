@@ -37,23 +37,21 @@ Ground truth order: source under this directory → `../collection/AGENTS.md` �
 
 ## Repository map
 
-| Path                                                | Role                                                                                                      |
-| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `models/collection_receipt_value.py`                | Board card payload (`_proposal_card_payload`); same-sheet/cap live in core `collection`                   |
-| `models/collection_voucher.py`                      | assigned / free (− `replaced_amount`); `_proposal_card_label`; pool payload                               |
-| `models/collection_allocation.py`                   | Per-circuit figures + status (`_proposal_kind_status`); FIFO engine; close/reopen; payload                |
-| `models/collection_receipt_proposal_event.py`       | Immutable audit trail; gated create; `_proposal_log` is the only sanctioned writer                        |
-| `models/collection_sheet.py`                        | `action_open_receipt_proposal` + the whole board RPC surface; row locks; Close confirmation hook          |
-| `models/collection_assignment_report.py`            | Asignaciones payload + `action_print_receipt_assignment_xlsx`; customer/circuit blocks, unassigned, recon |
-| `report/collection_receipt_assignment_xlsx.py`      | ORM-free xlsxwriter builder (`Resumen` + `Clientes`); formats reused from `collection`                    |
-| `security/ir.model.access.csv`                      | Event `1,0,1,0` for Collections User; close-confirm wizard `1,1,1,0` for Collections Manager              |
-| `security/collection_receipt_proposal_security.xml` | One global company `ir.rule` on the event model                                                           |
-| `views/collection_receipt_proposal_views.xml`       | `ir.actions.client` + the two inherited sheet-form header buttons                                         |
-| `static/src/receipt_proposal/`                      | OWL client action (two-column board), pure helpers, templates, scoped SCSS                                |
-| `static/src/receipt_proposal/amount_parser.esm.js`  | Import-free, locale-aware `parseAmount` / `rawAmount` (run in Node by the test suite)                     |
-| `wizard/collection_sheet_close_confirm.py`          | Manager-only Close confirmation for an unfinished board (D7, warn only)                                   |
-| `i18n/`                                             | `collection_receipt_proposal.pot` + `es_AR.po`                                                            |
-| `tests/common.py`                                   | Receipt-shaped fixtures replicated from `collection`'s `TestCollectionReceipt`                            |
+| Path                                               | Role                                                                                                      |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `models/collection_receipt_value.py`               | Board card payload (`_proposal_card_payload`); same-sheet/cap live in core `collection`                   |
+| `models/collection_voucher.py`                     | assigned / free (− `replaced_amount`); `_proposal_card_label`; pool payload                               |
+| `models/collection_allocation.py`                  | Per-circuit figures + status (`_proposal_kind_status`); FIFO engine; close/reopen; payload                |
+| `models/collection_sheet.py`                       | `action_open_receipt_proposal` + the whole board RPC surface; row locks; Close confirmation hook          |
+| `models/collection_assignment_report.py`           | Asignaciones payload + `action_print_receipt_assignment_xlsx`; customer/circuit blocks, unassigned, recon |
+| `report/collection_receipt_assignment_xlsx.py`     | ORM-free xlsxwriter builder (`Resumen` + `Clientes`); formats reused from `collection`                    |
+| `security/ir.model.access.csv`                     | Event `1,0,1,0` for Collections User; close-confirm wizard `1,1,1,0` for Collections Manager              |
+| `views/collection_receipt_proposal_views.xml`      | `ir.actions.client` + the two inherited sheet-form header buttons                                         |
+| `static/src/receipt_proposal/`                     | OWL client action (two-column board), pure helpers, templates, scoped SCSS                                |
+| `static/src/receipt_proposal/amount_parser.esm.js` | Import-free, locale-aware `parseAmount` / `rawAmount` (run in Node by the test suite)                     |
+| `wizard/collection_sheet_close_confirm.py`         | Manager-only Close confirmation for an unfinished board (D7, warn only)                                   |
+| `i18n/`                                            | `collection_receipt_proposal.pot` + `es_AR.po`                                                            |
+| `tests/common.py`                                  | Receipt-shaped fixtures replicated from `collection`'s `TestCollectionReceipt`                            |
 
 ## Domain rules (do not break)
 
@@ -88,8 +86,8 @@ Ground truth order: source under this directory → `../collection/AGENTS.md` �
   `proposal_free_amount` in the unassigned section). `Importe del Valor` in column H is
   for the reader and MUST NOT be subtotalled — a voucher split across two receipts would
   be double-counted — and the voucher subtotal's label merge deliberately swallows it so
-  there is nowhere to put a wrong number. Cash-replacement amounts sit in their own
-  column D for the same reason: the move is already reflected in the voucher rows.
+  there is nowhere to put a wrong number. The payload carries no cash-replacement rows
+  (no ledger is kept), so the workbook's cash block stays empty.
 - **Every total is a reference, never a recomputation.** The circuit balance reads the
   voucher subtotal cells and the document subtotal cell; the customer total reads its
   circuit balances; the sheet total reads the customer totals; the reconciliation reads
@@ -432,11 +430,12 @@ Ground truth order: source under this directory → `../collection/AGENTS.md` �
 - **Previews run in Python** (`preview_proposal_*`) so FIFO has exactly one
   implementation. Do not port `fifoPlan` to JS. The JS debounces the transfer-amount
   input ~250 ms.
-- **The customer Drawer stays the home of history and close/reopen.** The expanded
-  circuit answers "what does this circuit owe?"; the drawer answers "is this customer
-  done?". Do not merge them. The detail is deliberately inline rather than in the
-  drawer: the drawer overlays the board, and an operator has to be able to drag a
-  voucher from the pool onto the circuit they are reading.
+- **The customer Drawer stays the home of close/reopen.** It has no history tab: the
+  board keeps no event log. The expanded circuit answers "what does this circuit owe?";
+  the drawer answers "is this customer done?". Do not merge them. The detail is
+  deliberately inline rather than in the drawer: the drawer overlays the board, and an
+  operator has to be able to drag a voucher from the pool onto the circuit they are
+  reading.
 - **The board is reachable only from a `proposal`-state sheet**, via the header button,
   and only for Collections Users (the button, the Exportar Asignaciones button and every
   RPC; a plain internal user gets `AccessError`). The button sits **after**
@@ -447,17 +446,10 @@ Ground truth order: source under this directory → `../collection/AGENTS.md` �
   `collection-reconciliation`; `collection.action_collection_document_review` uses
   `collection-document-review`. Never set either path to `''`: client-action paths share
   a UNIQUE constraint, and action paths must also be unique across action types.
-- **Events are immutable.** `create` only inside the `collection_receipt_proposal_event`
-  privileged scope (`collection_common.privileged`, a contextvar), which only
-  `collection.receipt.proposal.event._proposal_log` opens; it sets `user_id` and
-  `event_date` itself and drops the caller's `default_*` context keys, so no caller can
-  pick the author or the date. A context key of that name has no effect. `write` raises,
-  `unlink` raises unless the sheet cascade is unlinking (`collection_sheet_unlinking`
-  scope).
 - **Customer close fields are board-only.** `proposal_closed`, `proposal_note`,
   `proposal_closed_uid` and `proposal_closed_date` are writable and creatable only
   inside the board's close/reopen scope (`collection_receipt_proposal_close`), so a
-  direct write cannot skip the note rule or the event log. They are `copy=False`.
+  direct write cannot skip the note rule. They are `copy=False`.
 - **Close warns about an unfinished board (D7, warn only).** The sheet form's Close
   button sets a context key that opts in to the check: after core's manager check and
   over-applied gate, a board that still holds pool money or customers not closed opens
@@ -469,9 +461,8 @@ Ground truth order: source under this directory → `../collection/AGENTS.md` �
   `WORKBOOK_OPTIONS` (`strings_to_formulas` and `strings_to_urls` off); intentional
   formulas go through `write_formula`. Its membrete follows the Planilla: report name
   and sheet reference, no company header and no printed date.
-- **Never `sudo()`. No new groups.** Access is core's Collections User (board, events,
-  buttons) and Collections Manager (close confirmation), plus the multi-company
-  `ir.rule` on events.
+- **Never `sudo()`. No new groups.** Access is core's Collections User (board, buttons)
+  and Collections Manager (close confirmation).
 - **Copy convention:** view/model strings in English, OWL template copy in Spanish —
   same as `document_review`. `i18n/es_AR.po` translates the English strings; the Spanish
   template copy stays as written. Re-export `i18n/collection_receipt_proposal.pot` from
@@ -511,9 +502,8 @@ invoke test -m collection --mode=update
 | `tests/test_receipt_proposal_order.py`         | `_proposal_fifo_key` == `_compute_line_ids` order, including both fallbacks                                                                                 |
 | `tests/test_receipt_proposal_split.py`         | cross-customer split accepted in-sheet, rejected across sheets; sheet-wide cap; unify; undo; owner re-pointing; remittance/replaced-cash lock               |
 | `tests/test_receipt_proposal_board.py`         | payload shape; `_require_proposal_sheet` rejections; Collections User ACL; replaced cash off the pool                                                       |
-| `tests/test_receipt_proposal_actions.py`       | transfer / set_circuit / impute / close / reopen and the event each writes; remittance is a pool card but never an owner                                    |
-| `tests/test_receipt_proposal_events.py`        | gated create; write/unlink refuse except sheet cascade; newest-first; Collections User ACL `1,0,1,0`; live company `ir.rule`; no `sudo()`/groups            |
-| `tests/test_receipt_proposal_privileged.py`    | forged context keys cannot create events or write the close fields                                                                                          |
+| `tests/test_receipt_proposal_actions.py`       | transfer / set_circuit / impute / close / reopen; remittance is a pool card but never an owner                                                              |
+| `tests/test_receipt_proposal_privileged.py`    | forged context keys cannot write the close fields                                                                                                           |
 | `tests/test_receipt_proposal_concurrency.py`   | each mutation locks its rows before the first write; stale free amounts are re-read and refused                                                             |
 | `tests/test_receipt_proposal_retention.py`     | retention certificates stay on their customer                                                                                                               |
 | `tests/test_receipt_proposal_close_confirm.py` | the D7 Close confirmation and who sees it                                                                                                                   |
@@ -526,8 +516,7 @@ invoke test -m collection --mode=update
 partner, user, and company helpers that tolerate `account`'s NOT NULL DB columns
 outliving its fields in the registry this module's tests load into. Company create
 copies leftover `res_company` columns from `env.company` (same SQL pattern as
-`collection` report/binding tests). `tests/test_receipt_proposal_events.py` exercises
-the live company `ir.rule` hide path with that helper.
+`collection` report/binding tests).
 
 Strict TDD is enabled in `openspec/config.yaml`. Add or update tests in the same change
 as behavior.

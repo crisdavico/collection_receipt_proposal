@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="utf-8" ?>
-<odoo noupdate="1">
-    <record id="collection_receipt_proposal_event_company_rule" model="ir.rule">
-        <field name="name">Collection Receipt Proposal Event: multi-company</field>
-        <field name="model_id" ref="model_collection_receipt_proposal_event" />
-        <field name="domain_force">[('company_id', 'in', company_ids)]</field>
-    </record>
-</odoo>

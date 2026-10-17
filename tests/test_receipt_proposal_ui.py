@@ -1409,11 +1409,12 @@ class TestReceiptProposalUi(TransactionCase):
         self.assertIn("rotate(-90deg)", collapsed)
         self.assertNotIn("writing-mode: vertical-rl", scss)
 
-    def test_drawer_offers_both_tabs(self):
-        """RED/GREEN: the drawer carries Conciliación and Historial."""
+    def test_drawer_has_no_history_tab(self):
+        """RED/GREEN: the drawer shows the reconciliation and no event history."""
         source = self._asset("receipt_proposal_action.xml")
         self.assertIn("Conciliación", source)
-        self.assertIn("Historial", source)
+        self.assertNotIn("Historial", source)
+        self.assertNotIn("drawerEvents", source)
 
     def test_owl_copy_is_spanish_and_views_are_english(self):
         """RED/GREEN: OWL template copy is Spanish; view/action strings English."""

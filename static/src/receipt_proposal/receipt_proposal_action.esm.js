@@ -14,7 +14,6 @@ import {
   circuitOf,
   columnTotals,
   coverageOf,
-  eventBullet,
   filterPool,
   formatAmount,
   formatBare,
@@ -111,10 +110,6 @@ export class ReceiptProposalAction extends Component {
 
   get pool() {
     return (this.state.board && this.state.board.pool) || [];
-  }
-
-  get events() {
-    return (this.state.board && this.state.board.events) || [];
   }
 
   get documentTypes() {
@@ -371,10 +366,6 @@ export class ReceiptProposalAction extends Component {
      que pagó, y ese nombre no puede quedar cortado sin forma de leerlo. */
   poolCardTitle(item) {
     return [item.method, item.reference, item.partner_name].filter(Boolean).join(" · ");
-  }
-
-  eventBullet(eventType) {
-    return eventBullet(eventType);
   }
 
   columnById(allocationId) {
@@ -1398,13 +1389,9 @@ export class ReceiptProposalAction extends Component {
   // Drawer
   // ----------------------------------------------------------------
 
-  openDrawer(allocationId, tab) {
+  openDrawer(allocationId) {
     this.closeMenu();
-    this.state.drawer = {allocation_id: allocationId, tab: tab || "conc"};
-  }
-
-  setDrawerTab(tab) {
-    this.state.drawer.tab = tab;
+    this.state.drawer = {allocation_id: allocationId};
   }
 
   closeDrawer() {
@@ -1413,16 +1400,6 @@ export class ReceiptProposalAction extends Component {
 
   get drawerColumn() {
     return this.state.drawer ? this.columnById(this.state.drawer.allocation_id) : null;
-  }
-
-  get drawerEvents() {
-    const drawer = this.state.drawer;
-    if (!drawer) {
-      return [];
-    }
-    return this.events.filter(
-      (event) => !event.allocation_id || event.allocation_id === drawer.allocation_id
-    );
   }
 
   drawerTotals(column) {
