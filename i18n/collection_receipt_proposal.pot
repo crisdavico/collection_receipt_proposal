@@ -6,8 +6,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Odoo Server 19.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-12 07:40+0000\n"
-"PO-Revision-Date: 2026-10-12 07:40+0000\n"
+"POT-Creation-Date: 2026-10-19 12:53+0000\n"
+"PO-Revision-Date: 2026-10-19 12:53+0000\n"
 "Last-Translator: \n"
 "Language-Team: \n"
 "MIME-Version: 1.0\n"
@@ -308,12 +308,6 @@ msgstr ""
 #. odoo-javascript
 #: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.esm.js:0
 msgid "Comprobantes devueltos a Sin asignar."
-msgstr ""
-
-#. module: collection_receipt_proposal
-#. odoo-javascript
-#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
-msgid "Conciliación"
 msgstr ""
 
 #. module: collection_receipt_proposal
@@ -889,6 +883,15 @@ msgstr ""
 
 #. module: collection_receipt_proposal
 #. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid ""
+"Se pierde toda la distribución del tablero: cada circuito queda\n"
+"                        en cero y se borra la imputación de todos los documentos. Se\n"
+"                        puede rehacer asignando de nuevo."
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
 #: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.esm.js:0
 msgid "Se requiere una planilla de cobranza válida para el tablero."
 msgstr ""
@@ -1046,6 +1049,12 @@ msgstr ""
 #. odoo-javascript
 #: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
 msgid "Todo"
+msgstr ""
+
+#. module: collection_receipt_proposal
+#. odoo-javascript
+#: code:addons/collection_receipt_proposal/static/src/receipt_proposal/receipt_proposal_action.xml:0
+msgid "Todo el importe pasa a un único circuito."
 msgstr ""
 
 #. module: collection_receipt_proposal
