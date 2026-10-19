@@ -11,11 +11,13 @@
         <field name="model">collection.sheet</field>
         <field name="inherit_id" ref="collection.view_collection_sheet_form" />
         <field name="arch" type="xml">
-            <!-- Close first asks to confirm an unfinished board (D7). -->
+            <!-- Close first asks to confirm an unfinished board (D7). It stays
+                 plain so the board is the one primary action on proposal. -->
             <button name="action_close" position="attributes">
                 <attribute
           name="context"
         >{'receipt_proposal_confirm_close': True}</attribute>
+                <attribute name="class" />
             </button>
             <button name="action_open_document_review" position="after">
                 <button
@@ -28,7 +30,7 @@
         />
                 <button
           name="action_print_receipt_assignment_xlsx"
-          string="Exportar Asignaciones"
+          string="Export Assignments"
           type="object"
           invisible="not id or state not in ('proposal', 'closed')"
           groups="collection.group_collection_user"
