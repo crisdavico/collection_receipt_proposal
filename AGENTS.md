@@ -437,7 +437,7 @@ Ground truth order: source under this directory → `../collection/AGENTS.md` �
   operator has to be able to drag a voucher from the pool onto the circuit they are
   reading.
 - **The board is reachable only from a `proposal`-state sheet**, via the header button,
-  and only for Collections Users (the button, the Exportar Asignaciones button and every
+  and only for Collections Users (the button, the Export Assignments button and every
   RPC; a plain internal user gets `AccessError`). The button sits **after**
   `action_open_document_review` and **before** `action_print_xlsx` —
   `collection/AGENTS.md` requires `action_print_xlsx` remain the last object button

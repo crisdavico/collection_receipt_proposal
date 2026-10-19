@@ -95,7 +95,7 @@ Collections Manager to confirm, listing the pending pool money, its
 voucher count and the open customers; it warns and never blocks.
 
 The proposal can leave Odoo as a spreadsheet: the header button
-**Exportar Asignaciones** (visible on a sheet in ``proposal`` and on the
+**Export Assignments** (visible on a sheet in ``proposal`` and on the
 ``closed`` sheet afterwards) downloads a two-sheet workbook built in the
 same visual language as the Planilla de Cobranza. **Resumen** carries
 one row per ``(customer, circuit)`` — collected, applied, on account,

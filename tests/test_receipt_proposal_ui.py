@@ -2154,8 +2154,19 @@ class TestReceiptProposalUi(TransactionCase):
         self.assertEqual(buttons[0].get("invisible"), "not id or state != 'proposal'")
         self.assertEqual(buttons[0].get("type"), "object")
 
+    def test_receipt_proposal_is_the_only_primary_on_proposal(self):
+        """Close stays a plain button so the board is the one primary action."""
+        arch = etree.fromstring(
+            self.env["collection.sheet"].get_view(view_type="form")["arch"]
+        )
+        close = arch.xpath('//header/button[@name="action_close"]')
+        board = arch.xpath('//header/button[@name="action_open_receipt_proposal"]')
+        self.assertEqual(len(close), 1)
+        self.assertNotIn("oe_highlight", close[0].get("class") or "")
+        self.assertIn("oe_highlight", board[0].get("class") or "")
+
     def test_assignment_export_button_is_inherited_and_gated(self):
-        """RED/GREEN: Exportar Asignaciones sits after the board button."""
+        """RED/GREEN: Export Assignments sits after the board button."""
         view = self.env.ref(
             "collection_receipt_proposal.view_collection_sheet_form_receipt_proposal"
         )
@@ -2165,7 +2176,7 @@ class TestReceiptProposalUi(TransactionCase):
             './/button[@name="action_print_receipt_assignment_xlsx"]'
         )
         self.assertEqual(len(buttons), 1)
-        self.assertEqual(buttons[0].get("string"), "Exportar Asignaciones")
+        self.assertEqual(buttons[0].get("string"), "Export Assignments")
         self.assertEqual(buttons[0].get("type"), "object")
         self.assertEqual(
             buttons[0].get("invisible"),

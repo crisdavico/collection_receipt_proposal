@@ -460,7 +460,7 @@ msgstr ""
 
 #. module: collection_receipt_proposal
 #: model_terms:ir.ui.view,arch_db:collection_receipt_proposal.view_collection_sheet_form_receipt_proposal
-msgid "Exportar Asignaciones"
+msgid "Export Assignments"
 msgstr ""
 
 #. module: collection_receipt_proposal
