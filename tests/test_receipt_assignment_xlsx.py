@@ -31,15 +31,17 @@ SUMMARY_TITLES = [
     "Estado Circuito",
     "Nota de Cierre",
 ]
+# `Documento` spans A:B, so openpyxl reads the merged B cell as None.
 DOCUMENT_TITLES = [
     "Documento",
-    "ID Externo",
+    None,
     "Emisión",
     "Vencimiento",
     "Saldo",
     "Aplicado",
     "Comisión",
-    "Estado ERP",
+    None,
+    None,
 ]
 TRANSFER_TITLES = [
     "Referencia",
@@ -47,8 +49,8 @@ TRANSFER_TITLES = [
     "Nº Comprobante",
     "Cuenta Origen",
     "Cuenta Destino",
-    "Estado",
-    "Revisado Por",
+    None,
+    None,
     "Importe del Valor",
     "Aplicado",
 ]
@@ -59,7 +61,7 @@ CHECK_TITLES = [
     "Banco",
     "Tipo",
     "Pago",
-    "Estado",
+    None,
     "Importe del Valor",
     "Aplicado",
 ]
@@ -173,7 +175,7 @@ def _value_row(reference, voucher_amount, applied, **extra):
         "to_account": "0002",
         "retention_label": "",
         "reviewed_by": "Revisor Uno",
-        "reviewed_at": datetime(2026, 9, 3, 10, 30),  # noqa: DTZ001
+        "reviewed_at": datetime(2026, 9, 3, 10, 30),
         "is_partial": voucher_amount != applied,
     }
     row.update(extra)
@@ -252,7 +254,7 @@ def _fixture_payload():
                 "direction": "replace",
                 "direction_label": "Reemplazo",
                 "created_by": "Operador Uno",
-                "created_at": datetime(2026, 9, 4, 9, 15),  # noqa: DTZ001
+                "created_at": datetime(2026, 9, 4, 9, 15),
             }
         ],
         "subtotal_cash_amount": 25.0,
@@ -514,6 +516,16 @@ class TestReceiptAssignmentXlsxBuilder(TransactionCase):
         self.assertIsNone(worksheet.cell(BALANCE_ROW + 1, 1).value)
         self.assertTrue(worksheet.cell(CUSTOMER_TOTAL_ROW, 1).value.startswith("Total"))
 
+    def test_blank_rows_separate_one_customer_from_the_next(self):
+        payload = _fixture_payload()
+        second = dict(payload["customer_blocks"][0], code="C002", name="BETA SA")
+        payload["customer_blocks"].append(second)
+        worksheet = load_workbook(BytesIO(builder._build_xlsx(payload)))["Clientes"]
+        next_band = CUSTOMER_TOTAL_ROW + 5
+        for row in range(CUSTOMER_TOTAL_ROW + 1, next_band):
+            self.assertIsNone(worksheet.cell(row, 1).value)
+        self.assertEqual(worksheet.cell(next_band, 1).value, "Cliente — C002  BETA SA")
+
     # ------------------------------------------------------------------
     # Clientes: documents
     # ------------------------------------------------------------------
@@ -524,9 +536,7 @@ class TestReceiptAssignmentXlsxBuilder(TransactionCase):
         self.assertEqual(
             worksheet.cell(DOCUMENT_HEADING_ROW, 1).value, "Documentos imputados"
         )
-        self.assertEqual(
-            self._titles(worksheet, DOCUMENT_HEADER_ROW)[:8], DOCUMENT_TITLES
-        )
+        self.assertEqual(self._titles(worksheet, DOCUMENT_HEADER_ROW), DOCUMENT_TITLES)
         self.assertEqual(
             [worksheet.cell(DOCUMENT_FIRST_ROW + offset, 1).value for offset in (0, 1)],
             ["FA-0001", "FA-0002"],
@@ -567,8 +577,8 @@ class TestReceiptAssignmentXlsxBuilder(TransactionCase):
                 "TR-1",
                 "0001",
                 "0002",
-                "Validado por cobranzas",
-                "Revisor Uno",
+                "",
+                "",
                 100.0,
                 100.0,
             ],
@@ -590,6 +600,36 @@ class TestReceiptAssignmentXlsxBuilder(TransactionCase):
         self.assertEqual(
             worksheet.cell(CHECK_FIRST_ROW, 6).value.date(), date(2026, 10, 1)
         )
+
+    def test_no_block_prints_ids_states_or_reviews(self):
+        payload = _fixture_payload()
+        payload["customer_blocks"][0]["circuits"][0]["voucher_blocks"] = [
+            _voucher_block(code, code, [_value_row(f"V-{code}", 10.0, 10.0)])
+            for code in (
+                "cash",
+                "check",
+                "bank_transfer",
+                "echeck",
+                "retention_certificate",
+            )
+        ]
+        worksheet = load_workbook(BytesIO(builder._build_xlsx(payload)))["Clientes"]
+        removed = {
+            "ID Externo",
+            "Estado ERP",
+            "Estado",
+            "Revisado Por",
+            "Revisado En",
+            "ID Documento",
+        }
+        values = {
+            cell.value
+            for row in worksheet.iter_rows(min_row=CUSTOMER_BAND_ROW)
+            for cell in row
+        }
+        self.assertFalse(removed & values)
+        dropped = {"A-OLD", "Vigente", "DOC-V-cash", "Validado por cobranzas"}
+        self.assertFalse(dropped & values)
 
     def test_split_value_row_is_highlighted(self):
         worksheet = self._load()["Clientes"]
@@ -792,7 +832,7 @@ class TestReceiptAssignmentXlsxBuilder(TransactionCase):
         reviewed = worksheet.cell(CASH_FIRST_ROW, 7)
         self.assertEqual(
             reviewed.value,
-            datetime(2026, 9, 4, 9, 15),  # noqa: DTZ001
+            datetime(2026, 9, 4, 9, 15),
         )
         self.assertEqual(reviewed.number_format, "DD/MM/YYYY HH:MM")
 
@@ -874,11 +914,11 @@ class TestReceiptAssignmentXlsxBuilder(TransactionCase):
         self.assertEqual(len(builder.SUMMARY_WIDTHS), builder.SUMMARY_LAST_COL + 1)
 
     def test_every_voucher_shape_fits_the_grid(self):
-        """RED/GREEN: a shape must fill the four middle columns exactly."""
+        """RED/GREEN: a shape must fit the middle columns, never spill past them."""
         shapes = [builder._DEFAULT_VOUCHER_SHAPE, *builder._VOUCHER_SHAPES.values()]
         middle_slots = builder._VOUCHER_AMOUNT_COL - 2
         for shape in shapes:
-            self.assertEqual(len(shape["middle"]), middle_slots, shape)
+            self.assertLessEqual(len(shape["middle"]), middle_slots, shape)
             self.assertEqual(len(shape["date"]), 2, shape)
             for _title, _key, kind in shape["middle"]:
                 self.assertIn(kind, ("text", "date", "datetime"), shape)

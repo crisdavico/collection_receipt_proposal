@@ -53,14 +53,13 @@ SUMMARY_HEADERS = (
     ("Nota de Cierre", 9, 9),
 )
 DOCUMENT_HEADERS = (
-    ("Documento", 0, 0),
-    ("ID Externo", 1, 1),
+    ("Documento", 0, 1),
     ("Emisión", 2, 2),
     ("Vencimiento", 3, 3),
     ("Saldo", 4, 4),
     ("Aplicado", 5, 5),
     ("Comisión", 6, 6),
-    ("Estado ERP", 7, CUSTOMER_LAST_COL),
+    ("", 7, CUSTOMER_LAST_COL),
 )
 CASH_HEADERS = (
     ("Valor Efectivo", 0, 0),
@@ -71,18 +70,13 @@ CASH_HEADERS = (
     ("Registrado En", 6, 7),
     ("", CUSTOMER_LAST_COL, CUSTOMER_LAST_COL),
 )
-# Each voucher type prints the fields it actually has, in the four middle
+# Each voucher type prints the fields it actually has, in the five middle
 # columns, the way the Planilla's own `_VOUCHER_BLOCK_COLUMNS` reshapes its
-# cheque block. No type carries a column that is always blank for it.
+# cheque block. A type with fewer fields leaves the rest of them blank, so the
+# money columns stay where every other block has them.
 _DEFAULT_VOUCHER_SHAPE = {
     "date": ("Fecha", "date"),
-    "middle": (
-        ("Nº Comprobante", "number", "text"),
-        ("ID Documento", "document_id", "text"),
-        ("Estado", "state_label", "text"),
-        ("Revisado Por", "reviewed_by", "text"),
-        ("Revisado En", "reviewed_at", "datetime"),
-    ),
+    "middle": (("Nº Comprobante", "number", "text"),),
 }
 _ACCOUNT_VOUCHER_SHAPE = {
     "date": ("Fecha", "date"),
@@ -90,8 +84,6 @@ _ACCOUNT_VOUCHER_SHAPE = {
         ("Nº Comprobante", "number", "text"),
         ("Cuenta Origen", "from_account", "text"),
         ("Cuenta Destino", "to_account", "text"),
-        ("Estado", "state_label", "text"),
-        ("Revisado Por", "reviewed_by", "text"),
     ),
 }
 _VOUCHER_SHAPES = {
@@ -102,7 +94,6 @@ _VOUCHER_SHAPES = {
             ("Banco", "check_bank", "text"),
             ("Tipo", "check_type_label", "text"),
             ("Pago", "check_payment_date", "date"),
-            ("Estado", "state_label", "text"),
         ),
     },
     "bank_transfer": _ACCOUNT_VOUCHER_SHAPE,
@@ -112,9 +103,6 @@ _VOUCHER_SHAPES = {
         "middle": (
             ("Nº Comprobante", "number", "text"),
             ("Tipo de Retención", "retention_label", "text"),
-            ("ID Documento", "document_id", "text"),
-            ("Estado", "state_label", "text"),
-            ("Revisado Por", "reviewed_by", "text"),
         ),
     },
 }
@@ -144,6 +132,9 @@ _VOUCHER_AMOUNT_COL = 7
 _VOUCHER_APPLIED_COL = CUSTOMER_LAST_COL
 _CASH_AMOUNT_COL = 3
 _BALANCE_FIRST_COL = 6
+_VOUCHER_FIRST_MIDDLE_COL = 2
+# Blank rows between two customers, so each one reads as its own block.
+_CUSTOMER_GAP_ROWS = 4
 _KIND_ORDER = tuple((kind, KIND_TITLES[kind]) for kind in DOCUMENT_KINDS)
 _RECON_COMPONENTS = ("assigned_total", "unassigned_total", "replaced_total")
 
@@ -468,8 +459,7 @@ def _write_document_block(ws, fmt, circuit, start):
         current = first + index
         text = _cell(fmt, "text", index)
         money = _cell(fmt, "money", index)
-        _write(ws, current, 0, row.get("number") or "", text)
-        _write(ws, current, 1, row.get("external_id") or "", text)
+        _merge(ws, current, 0, 1, row.get("number") or "", text)
         _write_typed(ws, fmt, current, 2, row, "issue_date", "date", index)
         _write_typed(ws, fmt, current, 3, row, "due_date", "date", index)
         for offset, key in enumerate(DOCUMENT_KEYS):
@@ -480,14 +470,7 @@ def _write_document_block(ws, fmt, circuit, start):
                 row.get(key) or 0.0,
                 money,
             )
-        _merge(
-            ws,
-            current,
-            7,
-            CUSTOMER_LAST_COL,
-            row.get("invoice_state_label") or "",
-            text,
-        )
+        _merge(ws, current, 7, CUSTOMER_LAST_COL, "", text)
     subtotal = first + len(rows)
     data_first = first if rows else None
     data_last = subtotal - 1 if rows else None
@@ -522,6 +505,10 @@ def _write_voucher_block(ws, fmt, block, start, applied_header="Aplicado"):
         title = f"{title} — {split} parcial(es), resaltado(s)"
     _level3(ws, fmt, start, title)
     date_header, date_key = shape["date"]
+    middle = enumerate(shape["middle"], start=_VOUCHER_FIRST_MIDDLE_COL)
+    blank_cols = range(
+        _VOUCHER_FIRST_MIDDLE_COL + len(shape["middle"]), _VOUCHER_AMOUNT_COL
+    )
     _write_headers(
         ws,
         fmt,
@@ -529,7 +516,8 @@ def _write_voucher_block(ws, fmt, block, start, applied_header="Aplicado"):
         (
             ("Referencia", 0, 0),
             (date_header, 1, 1),
-            *((cell[0], col, col) for col, cell in enumerate(shape["middle"], start=2)),
+            *((cell[0], col, col) for col, cell in middle),
+            *(("", col, col) for col in blank_cols),
             ("Importe del Valor", _VOUCHER_AMOUNT_COL, _VOUCHER_AMOUNT_COL),
             (applied_header, _VOUCHER_APPLIED_COL, _VOUCHER_APPLIED_COL),
         ),
@@ -544,8 +532,12 @@ def _write_voucher_block(ws, fmt, block, start, applied_header="Aplicado"):
         )
         _write(ws, current, 0, row.get("reference") or "", _cell(fmt, "text", index))
         _write_typed(ws, fmt, current, 1, row, date_key, "date", index)
-        for col, (_title, key, kind) in enumerate(shape["middle"], start=2):
+        for col, (_title, key, kind) in enumerate(
+            shape["middle"], start=_VOUCHER_FIRST_MIDDLE_COL
+        ):
             _write_typed(ws, fmt, current, col, row, key, kind, index)
+        for col in blank_cols:
+            _write(ws, current, col, "", _cell(fmt, "text", index))
         _write(
             ws, current, _VOUCHER_AMOUNT_COL, row.get("voucher_amount") or 0.0, money
         )
@@ -729,7 +721,10 @@ def _write_customers(ws, fmt, payload, start):
     blocks = payload.get("customer_blocks") or []
     cursor = start
     totals_rows = []
-    for customer in blocks:
+    for index, customer in enumerate(blocks):
+        if index:
+            # `_write_customer` already leaves one blank row after its total.
+            cursor += _CUSTOMER_GAP_ROWS - 1
         total, cursor = _write_customer(ws, fmt, customer, cursor)
         totals_rows.append(total)
     grand = cursor
