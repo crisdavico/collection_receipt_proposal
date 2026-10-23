@@ -299,6 +299,9 @@ class ReceiptProposalCommon:
         sheet = self._create_sheet()
         first = self._partner("PROP-A")
         second = self._partner("PROP-B")
+        # Like connector-created customers: a Collections User only sees
+        # contacts of their profile company, never company-less ones.
+        (first | second).company_id = sheet.company_id
         voucher_a = self._create_voucher(
             first,
             sheet,
