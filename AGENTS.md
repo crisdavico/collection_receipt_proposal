@@ -15,7 +15,7 @@ Ground truth order: source under this directory → `../collection/AGENTS.md` �
   — a drag-and-drop board that distributes a `collection.sheet`'s collected money across
   customers and the two circuits, keeping the imputación consistent by FIFO.
 - **Stack:** Odoo 19, PostgreSQL 17, Doodba (`seedian` compose project).
-  `depends: ["collection"]`, version `19.0.1.6.0`, `application: False`.
+  `depends: ["collection"]`, version `19.0.1.0.0`, `application: False`.
 - **Stores the validated proposal only.** It writes into the existing `collection.*`
   models and never touches Odoo accounting. The report over this data is the
   **Asignaciones** XLSX export (`action_print_receipt_assignment_xlsx`), read-only and
