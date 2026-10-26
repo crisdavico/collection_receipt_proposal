@@ -173,11 +173,7 @@ class ReceiptProposalCommon:
     def _confirm(self, sheet):
         """Move a sheet to `proposal`, the only state the board runs in."""
         self._mark_validated(sheet.voucher_ids)
-        sheet.action_seller_close()
-        collected = sheet._cash_collected_total()
-        currency = sheet.company_id.currency_id
-        if currency.compare_amounts(collected, 0.0) > 0:
-            sheet.action_declare_cash(commission_withheld=0.0)
+        sheet.action_seller_close(commission_withheld=0.0)
         sheet.action_confirm()
         return sheet
 
