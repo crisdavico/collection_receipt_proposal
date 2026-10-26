@@ -139,7 +139,8 @@ no total can disagree with the rows beneath it.
 `document_rows` MUST carry the lines of that circuit whose `amount_applied` is greater
 than zero, in the order `_proposal_kind_lines` returns them, never re-sorted. Each row
 MUST carry a `commission` rounded per row from the sheet's `commission_percent`, the way
-`_collection_report_document_blocks` does it. The keys `subtotal_invoice_balance`,
+`_collection_report_document_blocks` does it: on the untaxed share of what was applied
+(`collection.sheet._collection_line_commission`), never on the gross applied amount. The keys `subtotal_invoice_balance`,
 `subtotal_amount_applied` and `subtotal_commission` MUST always be present, `0.0` when
 there are no rows, so the workbook's balance line can reference the subtotal row
 unconditionally.

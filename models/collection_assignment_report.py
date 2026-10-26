@@ -181,8 +181,9 @@ class CollectionAllocation(models.Model):
         `collection.receipt._compute_line_ids`; it is never re-sorted here. An
         empty circuit still carries every key with a ``0.0`` subtotal, so the
         workbook's balance line can reference the subtotal row unconditionally.
-        Commission is rounded per row before summing, like the Planilla's own
-        `_collection_report_document_blocks`.
+        Commission is the Planilla's own per-row figure
+        (`_collection_line_commission`: the untaxed share of what was applied
+        times ``percent``), rounded per row before summing.
         """
         self.ensure_one()
         rows = []
@@ -199,7 +200,9 @@ class CollectionAllocation(models.Model):
                     "invoice_amount": line.invoice_amount or 0.0,
                     "invoice_balance": line.invoice_balance or 0.0,
                     "amount_applied": applied,
-                    "commission": currency.round(applied * percent / 100.0),
+                    "commission": self.env[
+                        "collection.sheet"
+                    ]._collection_line_commission(line, percent, currency),
                     "invoice_state_label": _label(
                         INVOICE_STATE_TITLES, line.invoice_state
                     ),
