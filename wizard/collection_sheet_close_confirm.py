@@ -7,12 +7,12 @@ from ..models.collection_sheet import CLOSE_CONFIRM_KEY
 
 
 class CollectionSheetCloseConfirm(models.TransientModel):
-    """Last look at an unfinished board before a manager closes the sheet.
+    """Last look at an unfinished board before an operator closes the sheet.
 
     Opened by the sheet form's Close button when the receipt proposal board
     still holds money in the unassigned pool or customers not closed on it.
-    It warns and lets the manager go on; it guards nothing -- Close itself
-    re-checks the Collections Manager role and its own gates.
+    It warns and lets the operator go on; it guards nothing -- Close itself
+    re-checks the Collections User role and its own gates.
     """
 
     _name = "collection.sheet.close.confirm"

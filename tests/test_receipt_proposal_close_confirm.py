@@ -123,19 +123,26 @@ class TestReceiptProposalCloseConfirm(ReceiptProposalCommon, TransactionCase):
         self.assertIs(self.sheet.action_close(), True)
         self.assertEqual(self.sheet.state, "closed")
 
-    def test_a_collections_user_is_refused_before_any_summary(self):
-        user = self._create_user(
-            "close-confirm-user", "collection.group_collection_user"
-        )
+    def test_a_user_without_collection_role_is_refused_before_any_summary(self):
+        user = self._create_user("close-confirm-plain", "base.group_user")
         with self.assertRaises(AccessError):
             self._close_from_the_button(self.sheet.with_user(user))
         self.assertEqual(self.sheet.state, "proposal")
 
-    def test_only_managers_may_open_the_confirmation(self):
+    def test_a_collections_user_confirms_and_closes(self):
+        user = self._create_user(
+            "close-confirm-user", "collection.group_collection_user"
+        )
+        wizard = self._wizard(self._close_from_the_button(self.sheet.with_user(user)))
+        self.assertEqual(self.sheet.state, "proposal")
+        wizard.with_user(user).action_confirm_close()
+        self.assertEqual(self.sheet.state, "closed")
+
+    def test_collections_users_may_open_the_confirmation(self):
         access = self.env["ir.model.access"].search([("model_id.model", "=", WIZARD)])
         self.assertEqual(len(access), 1)
         self.assertEqual(
-            access.group_id, self.env.ref("collection.group_collection_manager")
+            access.group_id, self.env.ref("collection.group_collection_user")
         )
 
     def test_the_sheet_form_close_button_asks_for_the_confirmation(self):

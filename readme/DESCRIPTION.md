@@ -59,7 +59,7 @@ move locks the vouchers and customers it touches, so a concurrent move is retrie
 fresh data and refused normally instead of over-assigning a voucher. Money split across
 customers counts for each of them by its share, so Close and the Planilla agree with the
 board. When the board still holds money in the pool or customers that are not closed,
-the sheet's Close button asks a Collections Manager to confirm, listing the pending pool
+the sheet's Close button asks a Collections User to confirm, listing the pending pool
 money, its voucher count and the open customers; it warns and never blocks.
 
 The proposal can leave Odoo as a spreadsheet: the header button **Exportar
