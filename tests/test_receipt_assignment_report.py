@@ -307,6 +307,35 @@ class TestReceiptAssignmentReport(ReceiptProposalCommon, TransactionCase):
         self.assertEqual(row["check_type_label"], "")
         self.assertIs(row["check_issue_date"], False)
 
+    def test_document_commission_is_on_the_untaxed_share_of_applied(self):
+        """RED/GREEN: row commission MUST match the Planilla's untaxed rule."""
+        sheet, partner = self._own_sheet("ASG-UNTAXED")
+        sheet.write({"commission_percent": 10.0})
+        voucher = self._create_voucher(partner, sheet, amount=605.0)
+        allocation = self._create_allocation(
+            sheet,
+            partner,
+            vouchers=voucher,
+            lines=[
+                self._line_vals(
+                    external_invoice_id="U-1",
+                    invoice_amount=1210.0,
+                    invoice_balance=1210.0,
+                    invoice_amount_untaxed=1000.0,
+                )
+            ],
+        )
+        receipt = self._create_receipt(allocation, "invoice")
+        self._create_value(receipt, voucher, 605.0)
+        self._confirm(sheet)
+        allocation._proposal_recompute("invoice")
+        customer = self._own_payload(sheet)["customer_blocks"][0]
+        circuit = customer["circuits"][0]
+        self.assertEqual(circuit["document_rows"][0]["amount_applied"], 605.0)
+        self.assertEqual(circuit["document_rows"][0]["commission"], 50.0)
+        self.assertEqual(circuit["subtotal_commission"], 50.0)
+        self.assertEqual(customer["total_commission"], sheet.commission_amount)
+
     def test_check_columns_only_fill_for_a_check(self):
         """RED/GREEN: a cheque carries its bank, type and both dates."""
         sheet, partner = self._own_sheet("ASG-CHECK")
