@@ -404,7 +404,7 @@ class CollectionSheet(models.Model):
             and len(self) == 1
             and self.state == _PROPOSAL_STATE
         ):
-            self._check_collection_manager()
+            self._check_collection_user()
             self._raise_if_allocations_over_applied()
             pending = self._proposal_close_pending()
             if pending["pool_vouchers"] or pending["open_allocations"]:
